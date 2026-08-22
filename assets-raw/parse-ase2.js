@@ -1,0 +1,11 @@
+const fs = require('fs');
+const path = require('path');
+const AseParser = require(path.join(__dirname, 'node_modules', 'ase-parser'));
+const file = process.argv[2];
+const buf = fs.readFileSync(file);
+const ase = new AseParser(buf, file.split('/').pop());
+ase.parse();
+console.log('frames:', ase.frames.length, 'size:', ase.width, ase.height);
+console.log('layers:', ase.layers.map(l=>l.name));
+console.log('slices:', ase.slices.length);
+ase.slices.forEach(s => console.log(' slice:', s.name, JSON.stringify(s.keys && s.keys[0])));
