@@ -2,11 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FieldInput } from "@/components/record/FieldInput";
+import { EntryModeSelect } from "@/components/record/EntryModeSelect";
+import { PrimaryVoiceEntry } from "@/components/record/PrimaryVoiceEntry";
+import { TextField } from "@/components/record/TextField";
 import { MoodPicker } from "@/components/record/MoodPicker";
 import { saveEvent, addCans } from "@/lib/db";
 import { todayKey, nowIso } from "@/lib/date";
+import { scanNeedsAttention } from "@/lib/safetyCheck";
 import type { DiaryEvent, EmotionKey, TextOrVoiceField } from "@/lib/types";
+
+type EntryMode = "record" | "text" | null;
 
 interface FieldState {
   text: string;
@@ -22,11 +27,12 @@ function toTextOrVoiceField(f: FieldState): TextOrVoiceField | undefined {
 
 export default function RecordPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<EntryMode>(null);
   const [whatHappened, setWhatHappened] = useState(emptyField());
-  const [firstReaction, setFirstReaction] = useState(emptyField());
-  const [wantToDo, setWantToDo] = useState(emptyField());
-  const [displayedMindset, setDisplayedMindset] = useState(emptyField());
-  const [howHandled, setHowHandled] = useState(emptyField());
+  const [firstReaction, setFirstReaction] = useState("");
+  const [wantToDo, setWantToDo] = useState("");
+  const [displayedMindset, setDisplayedMindset] = useState("");
+  const [howHandled, setHowHandled] = useState("");
   const [emotions, setEmotions] = useState<EmotionKey[]>([]);
   const [emotionsCustom, setEmotionsCustom] = useState("");
   const [saving, setSaving] = useState(false);
@@ -34,14 +40,10 @@ export default function RecordPage() {
   const hasAnyContent =
     whatHappened.text.trim() ||
     whatHappened.audio ||
-    firstReaction.text.trim() ||
-    firstReaction.audio ||
-    wantToDo.text.trim() ||
-    wantToDo.audio ||
-    displayedMindset.text.trim() ||
-    displayedMindset.audio ||
-    howHandled.text.trim() ||
-    howHandled.audio ||
+    firstReaction.trim() ||
+    wantToDo.trim() ||
+    displayedMindset.trim() ||
+    howHandled.trim() ||
     emotions.length > 0 ||
     emotionsCustom.trim();
 
@@ -53,13 +55,20 @@ export default function RecordPage() {
       createdAt: nowIso(),
       dateKey: todayKey(),
       whatHappened: toTextOrVoiceField(whatHappened),
-      firstReaction: toTextOrVoiceField(firstReaction),
+      firstReaction: firstReaction.trim() ? { text: firstReaction.trim() } : undefined,
       emotions: emotions.length ? emotions : undefined,
       emotionsCustom: emotionsCustom.trim() || undefined,
-      wantToDo: toTextOrVoiceField(wantToDo),
-      displayedMindset: toTextOrVoiceField(displayedMindset),
-      howHandled: toTextOrVoiceField(howHandled),
+      wantToDo: wantToDo.trim() ? { text: wantToDo.trim() } : undefined,
+      displayedMindset: displayedMindset.trim() ? { text: displayedMindset.trim() } : undefined,
+      howHandled: howHandled.trim() ? { text: howHandled.trim() } : undefined,
     };
+    event.needsAttention = scanNeedsAttention([
+      event.whatHappened?.text,
+      event.firstReaction?.text,
+      event.wantToDo?.text,
+      event.displayedMindset?.text,
+      event.howHandled?.text,
+    ]);
     await saveEvent(event);
     await addCans(1, "record");
     router.push("/");
@@ -74,68 +83,54 @@ export default function RecordPage() {
         <h1 className="text-[15px] font-medium">記錄今天</h1>
         <button
           onClick={handleSave}
-          disabled={!hasAnyContent || saving}
+          disabled={!hasAnyContent || saving || mode === null}
           className="-m-2 p-2 text-[16px] font-semibold disabled:opacity-30"
         >
           儲存
         </button>
       </div>
 
-      <p className="text-[12px] leading-relaxed text-muted">
-        以下欄位都不是必填，只記一句話也可以直接儲存。使用錄音時，該段音檔會送至 AI 服務轉換成文字。
-      </p>
+      {mode === null ? (
+        <EntryModeSelect onSelect={setMode} />
+      ) : (
+        <>
+          <p className="text-[12px] leading-relaxed text-muted">
+            以下欄位都不是必填，只記一句話也可以直接儲存。
+            {mode === "record" && "錄音會送至 AI 服務轉換成文字，需要你按下「轉換成文字」才會送出。"}
+          </p>
 
-      <FieldInput
-        fieldKey="whatHappened"
-        label="發生了什麼事？"
-        text={whatHappened.text}
-        onTextChange={(t) => setWhatHappened((s) => ({ ...s, text: t }))}
-        audio={whatHappened.audio}
-        onAudioRecorded={(a) => setWhatHappened((s) => ({ ...s, audio: a }))}
-      />
+          {mode === "record" ? (
+            <PrimaryVoiceEntry
+              audio={whatHappened.audio}
+              onAudioRecorded={(a) => setWhatHappened((s) => ({ ...s, audio: a }))}
+              text={whatHappened.text}
+              onTextChange={(t) => setWhatHappened((s) => ({ ...s, text: t }))}
+            />
+          ) : (
+            <TextField label="發生了什麼事？" value={whatHappened.text} onChange={(t) => setWhatHappened((s) => ({ ...s, text: t }))} />
+          )}
 
-      <FieldInput
-        fieldKey="firstReaction"
-        label="我的第一反應是什麼？"
-        text={firstReaction.text}
-        onTextChange={(t) => setFirstReaction((s) => ({ ...s, text: t }))}
-        audio={firstReaction.audio}
-        onAudioRecorded={(a) => setFirstReaction((s) => ({ ...s, audio: a }))}
-      />
+          <button
+            onClick={() => setMode(mode === "record" ? "text" : "record")}
+            className="self-start text-[12px] text-muted underline underline-offset-2"
+          >
+            {mode === "record" ? "改用純文字" : "🎙️ 改用錄音"}
+          </button>
 
-      <MoodPicker
-        selected={emotions}
-        onChange={setEmotions}
-        customText={emotionsCustom}
-        onCustomTextChange={setEmotionsCustom}
-      />
+          <TextField label="我的第一反應是什麼？" value={firstReaction} onChange={setFirstReaction} />
 
-      <FieldInput
-        fieldKey="wantToDo"
-        label="我想做什麼？"
-        text={wantToDo.text}
-        onTextChange={(t) => setWantToDo((s) => ({ ...s, text: t }))}
-        audio={wantToDo.audio}
-        onAudioRecorded={(a) => setWantToDo((s) => ({ ...s, audio: a }))}
-      />
+          <MoodPicker
+            selected={emotions}
+            onChange={setEmotions}
+            customText={emotionsCustom}
+            onCustomTextChange={setEmotionsCustom}
+          />
 
-      <FieldInput
-        fieldKey="displayedMindset"
-        label="我表現出來的心態是什麼？"
-        text={displayedMindset.text}
-        onTextChange={(t) => setDisplayedMindset((s) => ({ ...s, text: t }))}
-        audio={displayedMindset.audio}
-        onAudioRecorded={(a) => setDisplayedMindset((s) => ({ ...s, audio: a }))}
-      />
-
-      <FieldInput
-        fieldKey="howHandled"
-        label="最後我是怎麼處理的？"
-        text={howHandled.text}
-        onTextChange={(t) => setHowHandled((s) => ({ ...s, text: t }))}
-        audio={howHandled.audio}
-        onAudioRecorded={(a) => setHowHandled((s) => ({ ...s, audio: a }))}
-      />
+          <TextField label="我想做什麼？" value={wantToDo} onChange={setWantToDo} />
+          <TextField label="我表現出來的心態是什麼？" value={displayedMindset} onChange={setDisplayedMindset} />
+          <TextField label="最後我是怎麼處理的？" value={howHandled} onChange={setHowHandled} />
+        </>
+      )}
     </main>
   );
 }

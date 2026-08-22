@@ -47,7 +47,7 @@ export default function HomePage() {
     <main className="flex min-h-[calc(100dvh-5rem)] flex-col items-center px-6">
       <h1 className="mt-4 text-[15px] font-medium tracking-wide text-foreground">電子貓日記</h1>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-10 w-full max-w-xs">
+      <div className="mt-10 flex flex-1 flex-col items-center justify-center gap-10 w-full max-w-xs">
         <CatStage />
 
         <div className="flex w-full flex-col gap-3">

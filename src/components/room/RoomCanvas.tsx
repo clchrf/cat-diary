@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { CatSprite } from "@/components/cat/CatSprite";
+import { useCatIdle } from "@/lib/useCatIdle";
 import { getFurnitureById } from "@/lib/furniture";
 import type { RoomPlacement } from "@/lib/types";
 
@@ -11,40 +12,107 @@ interface RoomCanvasProps {
   onMove: (id: string, x: number, y: number) => void;
   onDragEnd: (id: string) => void;
   onRemove: (id: string) => void;
+  catPosition: { x: number; y: number };
+  onCatMove: (x: number, y: number) => void;
+  onCatDragEnd: (x: number, y: number) => void;
 }
 
 const ROOM_MAX_WIDTH = 340;
 const ROOM_ASPECT = 320 / 420;
+const CAT_SCALE = 3;
+const CAT_SIZE = 32 * CAT_SCALE;
+const DRAG_THRESHOLD = 8;
 
-export function RoomCanvas({ placements, onMove, onDragEnd, onRemove }: RoomCanvasProps) {
+type DragTarget =
+  | { type: "furniture"; id: string; offsetX: number; offsetY: number }
+  | { type: "cat"; startClientX: number; startClientY: number; moved: boolean };
+
+export function RoomCanvas({
+  placements,
+  onMove,
+  onDragEnd,
+  onRemove,
+  catPosition,
+  onCatMove,
+  onCatDragEnd,
+}: RoomCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const dragState = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const dragState = useRef<DragTarget | null>(null);
+  const [catDragging, setCatDragging] = useState(false);
+  const { animation, reacting, react, handleReactionComplete } = useCatIdle({ paused: catDragging });
 
-  function handlePointerDown(e: React.PointerEvent, placement: RoomPlacement) {
-    (e.target as Element).setPointerCapture(e.pointerId);
+  function handleFurniturePointerDown(e: React.PointerEvent, placement: RoomPlacement) {
+    try {
+      (e.target as Element).setPointerCapture(e.pointerId);
+    } catch {
+      // no-op — capture is a nice-to-have, dragging still works without it
+    }
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const pointerX = e.clientX - rect.left;
     const pointerY = e.clientY - rect.top;
     dragState.current = {
+      type: "furniture",
       id: placement.id,
       offsetX: pointerX - placement.x,
       offsetY: pointerY - placement.y,
     };
   }
 
+  function handleCatPointerDown(e: React.PointerEvent) {
+    try {
+      (e.target as Element).setPointerCapture(e.pointerId);
+    } catch {
+      // no-op — capture is a nice-to-have, dragging still works without it
+    }
+    dragState.current = {
+      type: "cat",
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      moved: false,
+    };
+  }
+
   function handlePointerMove(e: React.PointerEvent) {
-    if (!dragState.current) return;
+    const drag = dragState.current;
+    if (!drag) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const x = Math.max(0, Math.min(rect.width - 32, e.clientX - rect.left - dragState.current.offsetX));
-    const y = Math.max(0, Math.min(rect.height - 32, e.clientY - rect.top - dragState.current.offsetY));
-    onMove(dragState.current.id, x, y);
+
+    if (drag.type === "furniture") {
+      const x = Math.max(0, Math.min(rect.width - 32, e.clientX - rect.left - drag.offsetX));
+      const y = Math.max(0, Math.min(rect.height - 32, e.clientY - rect.top - drag.offsetY));
+      onMove(drag.id, x, y);
+      return;
+    }
+
+    // cat
+    if (!drag.moved) {
+      const dx = e.clientX - drag.startClientX;
+      const dy = e.clientY - drag.startClientY;
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      drag.moved = true;
+      setCatDragging(true);
+    }
+    const maxX = Math.max(1, rect.width - CAT_SIZE);
+    const maxY = Math.max(1, rect.height - CAT_SIZE);
+    const px = Math.max(0, Math.min(maxX, e.clientX - rect.left - CAT_SIZE / 2));
+    const py = Math.max(0, Math.min(maxY, e.clientY - rect.top - CAT_SIZE / 2));
+    onCatMove(px / maxX, py / maxY);
   }
 
   function handlePointerUp() {
-    if (dragState.current) {
-      onDragEnd(dragState.current.id);
+    const drag = dragState.current;
+    if (!drag) return;
+    if (drag.type === "furniture") {
+      onDragEnd(drag.id);
+    } else if (drag.type === "cat") {
+      if (drag.moved) {
+        onCatDragEnd(catPosition.x, catPosition.y);
+        setCatDragging(false);
+      } else {
+        react();
+      }
     }
     dragState.current = null;
   }
@@ -67,7 +135,7 @@ export function RoomCanvas({ placements, onMove, onDragEnd, onRemove }: RoomCanv
         return (
           <div
             key={p.id}
-            onPointerDown={(e) => handlePointerDown(e, p)}
+            onPointerDown={(e) => handleFurniturePointerDown(e, p)}
             onDoubleClick={() => onRemove(p.id)}
             style={{
               position: "absolute",
@@ -91,8 +159,25 @@ export function RoomCanvas({ placements, onMove, onDragEnd, onRemove }: RoomCanv
         );
       })}
 
-      <div style={{ position: "absolute", left: "50%", bottom: "8%", transform: "translateX(-50%)" }}>
-        <CatSprite animation="idle_sit" scale={3} fps={5} />
+      <div
+        onPointerDown={handleCatPointerDown}
+        style={{
+          position: "absolute",
+          left: `calc((100% - ${CAT_SIZE}px) * ${catPosition.x})`,
+          top: `calc((100% - ${CAT_SIZE}px) * ${catPosition.y})`,
+          cursor: catDragging ? "grabbing" : "grab",
+          touchAction: "none",
+        }}
+        aria-label="貓咪，按住可拖曳"
+      >
+        <CatSprite
+          animation={animation}
+          scale={CAT_SCALE}
+          fps={reacting ? 5 : 3}
+          loop={!reacting}
+          paused={catDragging}
+          onLoopComplete={reacting ? handleReactionComplete : undefined}
+        />
       </div>
     </div>
   );

@@ -3,18 +3,18 @@
 import { useEffect, useState, use as usePromise } from "react";
 import { useRouter } from "next/navigation";
 import { FieldDisplay } from "@/components/record/FieldDisplay";
+import { PromptPanel } from "@/components/shared/PromptPanel";
 import { getEvent, saveEvent } from "@/lib/db";
 import { formatDateLabel, formatTimeOfDay } from "@/lib/date";
+import { buildEventPrompt } from "@/lib/aiPrompt";
+import { scanNeedsAttention } from "@/lib/safetyCheck";
 import { EMOTION_OPTIONS } from "@/lib/types";
-import type { AiAnalysis, DiaryEvent } from "@/lib/types";
+import type { DiaryEvent } from "@/lib/types";
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = usePromise(params);
   const router = useRouter();
   const [event, setEvent] = useState<DiaryEvent | null | undefined>(undefined);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [showDisclosure, setShowDisclosure] = useState(false);
 
   const [currentEmotion, setCurrentEmotion] = useState("");
   const [currentView, setCurrentView] = useState("");
@@ -37,61 +37,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     });
   }, [id]);
 
-  async function runAnalysis() {
-    if (!event) return;
-    setAnalyzing(true);
-    setAnalyzeError(null);
-    try {
-      const res = await fetch("/api/analyze/event", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          whatHappened: event.whatHappened?.text,
-          firstReaction: event.firstReaction?.text,
-          emotions: event.emotions,
-          emotionsCustom: event.emotionsCustom,
-          wantToDo: event.wantToDo?.text,
-          displayedMindset: event.displayedMindset?.text,
-          howHandled: event.howHandled?.text,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setAnalyzeError(data.message ?? "分析失敗");
-        return;
-      }
-      const analysis: AiAnalysis = {
-        summary: data.summary,
-        primaryEmotion: data.primaryEmotion,
-        secondaryEmotions: data.secondaryEmotions,
-        eventType: data.eventType,
-        generatedAt: new Date().toISOString(),
-        confirmed: false,
-      };
-      const updated: DiaryEvent = {
-        ...event,
-        aiAnalysis: analysis,
-        needsAttention: data.needsAttention,
-      };
-      await saveEvent(updated);
-      setEvent(updated);
-    } catch {
-      setAnalyzeError("網路錯誤，請稍後再試");
-    } finally {
-      setAnalyzing(false);
-    }
-  }
-
-  async function confirmAiEmotions(matches: boolean) {
-    if (!event?.aiAnalysis) return;
-    const updated: DiaryEvent = {
-      ...event,
-      aiAnalysis: { ...event.aiAnalysis, confirmed: matches },
-    };
-    await saveEvent(updated);
-    setEvent(updated);
-  }
-
   async function saveReflection() {
     if (!event) return;
     const updated: DiaryEvent = {
@@ -107,6 +52,21 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         actual: actual || undefined,
       },
     };
+    // Re-run the local safety check since reflection text can add new content;
+    // never downgrade an existing flag, only ever add to it.
+    const rescanned = scanNeedsAttention([
+      event.whatHappened?.text,
+      event.firstReaction?.text,
+      event.wantToDo?.text,
+      event.displayedMindset?.text,
+      event.howHandled?.text,
+      currentEmotion,
+      currentView,
+      finalOutcome,
+      expected,
+      actual,
+    ]);
+    updated.needsAttention = rescanned.flagged ? rescanned : event.needsAttention;
     await saveEvent(updated);
     setEvent(updated);
   }
@@ -160,83 +120,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         <FieldDisplay label="最後我是怎麼處理的" field={event.howHandled} />
       </div>
 
-      {/* AI analysis */}
-      <section className="flex flex-col gap-3 border-t border-divider pt-5">
-        <div className="flex items-center justify-between">
-          <span className="text-[13px] font-medium">AI 整理</span>
-          {!event.aiAnalysis && !showDisclosure && (
-            <button
-              onClick={() => setShowDisclosure(true)}
-              className="text-[13px] text-muted underline underline-offset-2"
-            >
-              產生 AI 整理
-            </button>
-          )}
-        </div>
-
-        {showDisclosure && !event.aiAnalysis && (
-          <div className="flex flex-col gap-2 rounded-xl border border-divider p-3">
-            <p className="text-[12px] leading-relaxed text-muted">
-              這段內容將送至 AI 服務進行分析，僅做整理與觀察，不會提供醫療或心理診斷。
-            </p>
-            <button
-              onClick={runAnalysis}
-              disabled={analyzing}
-              className="self-start rounded-lg bg-foreground px-4 py-2 text-[13px] text-background disabled:opacity-50"
-            >
-              {analyzing ? "分析中…" : "同意並開始分析"}
-            </button>
-          </div>
-        )}
-
-        {analyzeError && <p className="text-[12px] text-[var(--danger)]">{analyzeError}</p>}
-
-        {event.aiAnalysis && (
-          <div className="flex flex-col gap-3 rounded-xl border border-divider p-3">
-            <p className="text-[14px] leading-relaxed">{event.aiAnalysis.summary}</p>
-            <div className="text-[13px]">
-              <span className="text-muted">主要情緒：</span>
-              {event.aiAnalysis.primaryEmotion}
-            </div>
-            {!!event.aiAnalysis.secondaryEmotions?.length && (
-              <div className="text-[13px]">
-                <span className="text-muted">可能的次要情緒：</span>
-                {event.aiAnalysis.secondaryEmotions.join("、")}
-              </div>
-            )}
-            <div className="text-[13px]">
-              <span className="text-muted">事件類型：</span>
-              {event.aiAnalysis.eventType}
-            </div>
-            <div className="flex items-center gap-3 pt-1">
-              <span className="text-[12px] text-muted">這個整理符合你的感覺嗎？</span>
-              <button
-                onClick={() => confirmAiEmotions(true)}
-                className="rounded-full border px-3 py-1 text-[12px]"
-                style={{
-                  borderColor: event.aiAnalysis.confirmed ? "var(--foreground)" : "var(--divider)",
-                  background: event.aiAnalysis.confirmed ? "var(--foreground)" : "transparent",
-                  color: event.aiAnalysis.confirmed ? "var(--background)" : "var(--foreground)",
-                }}
-              >
-                符合
-              </button>
-              <button
-                onClick={() => confirmAiEmotions(false)}
-                className="rounded-full border px-3 py-1 text-[12px]"
-                style={{
-                  borderColor: event.aiAnalysis.confirmed === false ? "var(--foreground)" : "var(--divider)",
-                  background: event.aiAnalysis.confirmed === false ? "var(--foreground)" : "transparent",
-                  color: event.aiAnalysis.confirmed === false ? "var(--background)" : "var(--foreground)",
-                }}
-              >
-                不符合
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
-
       {/* Later reflection: 當下 vs 事後 */}
       <section className="flex flex-col gap-3 border-t border-divider pt-5">
         <span className="text-[13px] font-medium">現在回頭看</span>
@@ -286,6 +169,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         >
           儲存
         </button>
+      </section>
+
+      <section className="border-t border-divider pt-5">
+        <PromptPanel buildPrompt={() => buildEventPrompt(event)} />
       </section>
     </main>
   );

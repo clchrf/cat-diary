@@ -8,6 +8,8 @@ import type {
   OwnedFurniture,
   RoomPlacement,
   AppSettings,
+  DailyMood,
+  CatPosition,
 } from "./types";
 
 interface CatDiarySchema extends DBSchema {
@@ -46,10 +48,18 @@ interface CatDiarySchema extends DBSchema {
     key: string;
     value: AppSettings;
   };
+  dailyMoods: {
+    key: string;
+    value: DailyMood;
+  };
+  catPosition: {
+    key: string;
+    value: CatPosition;
+  };
 }
 
 const DB_NAME = "cat-diary";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<CatDiarySchema>> | null = null;
 
@@ -59,22 +69,28 @@ export function getDb(): Promise<IDBPDatabase<CatDiarySchema>> {
   }
   if (!dbPromise) {
     dbPromise = openDB<CatDiarySchema>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        const events = db.createObjectStore("events", { keyPath: "id" });
-        events.createIndex("by-dateKey", "dateKey");
-        events.createIndex("by-createdAt", "createdAt");
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          const events = db.createObjectStore("events", { keyPath: "id" });
+          events.createIndex("by-dateKey", "dateKey");
+          events.createIndex("by-createdAt", "createdAt");
 
-        const audio = db.createObjectStore("audio", { keyPath: "id" });
-        audio.createIndex("by-linkedRecordId", "linkedRecordId");
+          const audio = db.createObjectStore("audio", { keyPath: "id" });
+          audio.createIndex("by-linkedRecordId", "linkedRecordId");
 
-        const medication = db.createObjectStore("medication", { keyPath: "id" });
-        medication.createIndex("by-dateKey", "dateKey");
+          const medication = db.createObjectStore("medication", { keyPath: "id" });
+          medication.createIndex("by-dateKey", "dateKey");
 
-        db.createObjectStore("companionSessions", { keyPath: "id" });
-        db.createObjectStore("cans", { keyPath: "id" });
-        db.createObjectStore("furniture", { keyPath: "id" });
-        db.createObjectStore("roomLayout", { keyPath: "id" });
-        db.createObjectStore("settings", { keyPath: "id" });
+          db.createObjectStore("companionSessions", { keyPath: "id" });
+          db.createObjectStore("cans", { keyPath: "id" });
+          db.createObjectStore("furniture", { keyPath: "id" });
+          db.createObjectStore("roomLayout", { keyPath: "id" });
+          db.createObjectStore("settings", { keyPath: "id" });
+        }
+        if (oldVersion < 2) {
+          db.createObjectStore("dailyMoods", { keyPath: "dateKey" });
+          db.createObjectStore("catPosition", { keyPath: "id" });
+        }
       },
     });
   }
@@ -147,6 +163,12 @@ export async function getAllMedication(): Promise<MedicationRecord[]> {
   return db.getAll("medication");
 }
 
+export async function getMedicationInDateKeys(dateKeys: string[]): Promise<MedicationRecord[]> {
+  const set = new Set(dateKeys);
+  const all = await getAllMedication();
+  return all.filter((m) => set.has(m.dateKey));
+}
+
 // ---------- Companion sessions ----------
 export async function saveCompanionSession(session: CompanionSession): Promise<void> {
   const db = await getDb();
@@ -204,6 +226,37 @@ export async function getRoomLayout(): Promise<RoomPlacement[]> {
   return db.getAll("roomLayout");
 }
 
+// ---------- Daily mood ----------
+export async function getDailyMood(dateKey: string): Promise<DailyMood | undefined> {
+  const db = await getDb();
+  return db.get("dailyMoods", dateKey);
+}
+
+export async function getDailyMoodsInDateKeys(dateKeys: string[]): Promise<DailyMood[]> {
+  const db = await getDb();
+  const all = await db.getAll("dailyMoods");
+  const set = new Set(dateKeys);
+  return all.filter((m) => set.has(m.dateKey));
+}
+
+export async function saveDailyMood(mood: DailyMood): Promise<void> {
+  const db = await getDb();
+  await db.put("dailyMoods", mood);
+}
+
+// ---------- Cat position ----------
+const CAT_POSITION_ID = "room-cat";
+
+export async function getCatPosition(): Promise<CatPosition | undefined> {
+  const db = await getDb();
+  return db.get("catPosition", CAT_POSITION_ID);
+}
+
+export async function saveCatPosition(x: number, y: number): Promise<void> {
+  const db = await getDb();
+  await db.put("catPosition", { id: CAT_POSITION_ID, x, y });
+}
+
 // ---------- Settings ----------
 export async function getSettings(): Promise<AppSettings> {
   const db = await getDb();
@@ -227,6 +280,8 @@ export async function exportAllData(): Promise<Record<string, unknown[]>> {
     "cans",
     "furniture",
     "roomLayout",
+    "dailyMoods",
+    "catPosition",
     "settings",
   ] as const;
   const result: Record<string, unknown[]> = {};
@@ -257,6 +312,8 @@ export async function importAllData(data: Record<string, unknown[]>): Promise<vo
     "cans",
     "furniture",
     "roomLayout",
+    "dailyMoods",
+    "catPosition",
     "settings",
   ] as const;
   for (const name of storeNames) {
@@ -286,6 +343,8 @@ export async function clearAllData(): Promise<void> {
     "cans",
     "furniture",
     "roomLayout",
+    "dailyMoods",
+    "catPosition",
     "settings",
   ] as const;
   for (const name of storeNames) {

@@ -19,17 +19,20 @@ interface CatSpriteProps {
   onLoopComplete?: () => void;
   flipX?: boolean;
   className?: string;
+  /** Freezes the current frame — used while the cat is being dragged. */
+  paused?: boolean;
 }
 
 export function CatSprite({
   animation,
   colorway = "gray",
   scale = 4,
-  fps = 6,
+  fps = 3,
   loop = true,
   onLoopComplete,
   flipX = false,
   className,
+  paused = false,
 }: CatSpriteProps) {
   const def = CAT_ANIMATIONS[animation] ?? CAT_ANIMATIONS.idle_sit;
   const [frame, setFrame] = useState(0);
@@ -43,6 +46,10 @@ export function CatSprite({
   useEffect(() => {
     frameRef.current = 0;
     setFrame(0);
+  }, [animation]);
+
+  useEffect(() => {
+    if (paused) return;
     const interval = setInterval(() => {
       frameRef.current += 1;
       if (frameRef.current >= def.frames) {
@@ -54,7 +61,7 @@ export function CatSprite({
       setFrame(frameRef.current);
     }, 1000 / fps);
     return () => clearInterval(interval);
-  }, [animation, def.frames, fps, loop]);
+  }, [animation, def.frames, fps, loop, paused]);
 
   const size = CAT_FRAME_SIZE * scale;
   const bgX = -(frame * CAT_FRAME_SIZE * scale);

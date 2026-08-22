@@ -15,21 +15,6 @@ export interface TextOrVoiceField {
   audioId?: string;
 }
 
-export interface AiEmotionSuggestion {
-  secondaryEmotions: string[];
-  confirmed: boolean;
-  userAdjustedEmotions?: string[];
-}
-
-export interface AiAnalysis {
-  summary?: string;
-  primaryEmotion?: string;
-  secondaryEmotions?: string[];
-  eventType?: string;
-  generatedAt: string;
-  confirmed: boolean;
-}
-
 export interface LaterReflection {
   currentEmotion?: string;
   currentView?: string;
@@ -59,7 +44,6 @@ export interface DiaryEvent {
   wantToDo?: TextOrVoiceField;
   displayedMindset?: TextOrVoiceField;
   howHandled?: TextOrVoiceField;
-  aiAnalysis?: AiAnalysis;
   laterReflection?: LaterReflection;
   expectationVsActual?: ExpectationVsActual;
   needsAttention?: NeedsAttention;
@@ -114,4 +98,17 @@ export interface AppSettings {
   pinHash?: string;
   lastReminderEmailDateKey?: string;
   aiConsentAcknowledged?: boolean;
+}
+
+export interface DailyMood {
+  dateKey: string; // primary key
+  emotionKey: EmotionKey;
+  source: "auto" | "user"; // "auto" = computed from that day's tagged event emotions
+  updatedAt: string;
+}
+
+export interface CatPosition {
+  id: "room-cat";
+  x: number; // relative 0..1 within the room canvas
+  y: number; // relative 0..1 within the room canvas
 }

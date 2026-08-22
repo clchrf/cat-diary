@@ -1,37 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CatSprite } from "./CatSprite";
-import { IDLE_POOL, CLICK_REACTION_POOL } from "@/lib/catSprite";
-
-function pickRandom<T>(pool: readonly T[]): T {
-  return pool[Math.floor(Math.random() * pool.length)];
-}
+import { useCatIdle } from "@/lib/useCatIdle";
 
 export function CatStage({ colorway = "gray" as const }: { colorway?: "gray" | "ginger" | "white" }) {
-  const [animation, setAnimation] = useState<string>("idle_sit");
-  const [reacting, setReacting] = useState(false);
+  const { animation, reacting, react, handleReactionComplete } = useCatIdle();
   const [bounce, setBounce] = useState(false);
 
-  useEffect(() => {
-    if (reacting) return;
-    const interval = setInterval(() => {
-      setAnimation(pickRandom(IDLE_POOL));
-    }, 5000 + Math.random() * 2000);
-    return () => clearInterval(interval);
-  }, [reacting]);
-
   function handleClick() {
-    if (reacting) return;
-    setReacting(true);
+    react();
     setBounce(true);
-    setAnimation(pickRandom(CLICK_REACTION_POOL));
     setTimeout(() => setBounce(false), 220);
-  }
-
-  function handleReactionComplete() {
-    setReacting(false);
-    setAnimation(pickRandom(IDLE_POOL));
   }
 
   return (
@@ -48,7 +28,7 @@ export function CatStage({ colorway = "gray" as const }: { colorway?: "gray" | "
         animation={animation}
         colorway={colorway}
         scale={5}
-        fps={7}
+        fps={reacting ? 5 : 3}
         loop={!reacting}
         onLoopComplete={reacting ? handleReactionComplete : undefined}
       />

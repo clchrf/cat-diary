@@ -51,6 +51,64 @@ export function dateKeysBetween(startKey: string, endKey: string): string[] {
   return keys;
 }
 
+// Asia/Taipei has no DST and is a fixed UTC+8 year-round, so a Y/M/D
+// calendar date there always maps to this UTC instant — this keeps
+// calendar math correct regardless of the device's own local timezone.
+function taipeiMidnightUtc(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month - 1, day) - 8 * 60 * 60 * 1000);
+}
+
+export interface CalendarCell {
+  dateKey: string;
+  day: number;
+  inMonth: boolean;
+  isToday: boolean;
+}
+
+/** Monday-first calendar grid for the given year/month (1-12), padded with adjacent-month days. */
+export function calendarGrid(year: number, month: number): CalendarCell[] {
+  const today = todayKey();
+  const firstOfMonth = taipeiMidnightUtc(year, month, 1);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  // getUTCDay(): 0=Sun..6=Sat, convert to Monday-first offset (0=Mon..6=Sun)
+  const leadingOffset = (firstOfMonth.getUTCDay() + 6) % 7;
+
+  const cells: CalendarCell[] = [];
+  for (let i = 0; i < leadingOffset; i++) {
+    const d = taipeiMidnightUtc(year, month, 1 - (leadingOffset - i));
+    cells.push({ dateKey: dateKeyOf(d), day: d.getUTCDate(), inMonth: false, isToday: false });
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateKey = dateKeyOf(taipeiMidnightUtc(year, month, day));
+    cells.push({ dateKey, day, inMonth: true, isToday: dateKey === today });
+  }
+  let trailingDay = daysInMonth + 1;
+  while (cells.length % 7 !== 0) {
+    const d = taipeiMidnightUtc(year, month, trailingDay);
+    cells.push({ dateKey: dateKeyOf(d), day: d.getUTCDate(), inMonth: false, isToday: false });
+    trailingDay += 1;
+  }
+  return cells;
+}
+
+export function monthDateKeys(year: number, month: number): string[] {
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const keys: string[] = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    keys.push(dateKeyOf(taipeiMidnightUtc(year, month, day)));
+  }
+  return keys;
+}
+
+export function formatMonthLabel(year: number, month: number): string {
+  return `${year} 年 ${month} 月`;
+}
+
+export function formatFullDateLabel(dateKey: string): string {
+  const [, m, d] = dateKey.split("-").map(Number);
+  return `${m} 月 ${d} 日`;
+}
+
 export function dateKeysInRange(days: number): string[] {
   const keys: string[] = [];
   const now = new Date();
