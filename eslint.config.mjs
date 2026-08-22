@@ -6,11 +6,10 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
-    // These React Compiler-oriented rules flag the standard
-    // "fetch on mount, setState in an async effect" pattern used
-    // throughout this app's data-loading pages. That pattern is
-    // intentional and correct here (IndexedDB reads), so the rules
-    // are kept as warnings rather than build-breaking errors.
+    // set-state-in-effect flags the standard "fetch on mount, setState in
+    // an async effect" pattern used throughout this app's IndexedDB
+    // data-loading pages. That pattern is intentional and correct here,
+    // so it's kept as a warning rather than a build-breaking error.
     rules: {
       "react-hooks/set-state-in-effect": "warn",
     },
