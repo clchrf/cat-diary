@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 interface EntryModeSelectProps {
   onSelect: (mode: "record" | "text") => void;
 }
@@ -19,6 +21,12 @@ export function EntryModeSelect({ onSelect }: EntryModeSelectProps) {
       >
         ✏️ 文字記錄
       </button>
+      <Link
+        href="/companion"
+        className="w-full rounded-2xl border border-divider py-4 text-center text-[16px] font-medium"
+      >
+        🧘 2 分鐘陪伴
+      </Link>
     </div>
   );
 }

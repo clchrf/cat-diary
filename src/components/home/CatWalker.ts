@@ -4,6 +4,12 @@ import { saveCatPosition } from "@/lib/db";
 
 const DOUBLE_TAP_MS = 320;
 const INTERACTION_PAUSE_MS = 4000;
+// A leisurely, constant walking speed — duration is derived from actual
+// distance so a long walk doesn't get rushed to fit a fixed time window,
+// clamped to stay within a calm, deliberate pace either way.
+const WALK_SPEED_PX_PER_SEC = 32;
+const MIN_WALK_MS = 3000;
+const MAX_WALK_MS = 6000;
 
 function pickRandom<T>(pool: readonly T[]): T {
   return pool[Math.floor(Math.random() * pool.length)];
@@ -112,7 +118,7 @@ export class CatWalker {
 
   private scheduleNextIdle = () => {
     if (this.idleTimer) clearTimeout(this.idleTimer);
-    const delay = 3000 + Math.random() * 5000;
+    const delay = 4000 + Math.random() * 6000; // 4-10s, calm pacing
     this.idleTimer = setTimeout(() => {
       if (this.unmounted) return;
       const remaining = this.pausedUntil - Date.now();
@@ -149,7 +155,7 @@ export class CatWalker {
           : "walk_up";
     this.onAnimationChange(dir);
 
-    const durationMs = 2000 + Math.random() * 3000;
+    const durationMs = Math.min(MAX_WALK_MS, Math.max(MIN_WALK_MS, (dist / WALK_SPEED_PX_PER_SEC) * 1000));
     const startTime = performance.now();
 
     const frame = (now: number) => {

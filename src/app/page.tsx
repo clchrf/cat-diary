@@ -3,19 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { HomeRoom, HOME_CAT_SIZE } from "@/components/home/HomeRoom";
-import {
-  getEventsByDateKey,
-  getMedicationByDateKey,
-  getCansTotal,
-  recordMedication,
-  addCans,
-} from "@/lib/db";
+import { getMedicationByDateKey, recordMedication, addCans } from "@/lib/db";
 import { todayKey, nowIso } from "@/lib/date";
 import type { Rect } from "@/lib/roam";
 
 export default function HomePage() {
-  const [todayCount, setTodayCount] = useState<number | null>(null);
-  const [cans, setCans] = useState<number | null>(null);
   const [medTakenToday, setMedTakenToday] = useState(false);
   const [medBusy, setMedBusy] = useState(false);
 
@@ -27,15 +19,8 @@ export default function HomePage() {
   const [defaultCatPosition, setDefaultCatPosition] = useState<{ x: number; y: number } | undefined>();
 
   async function refresh() {
-    const key = todayKey();
-    const [events, meds, canTotal] = await Promise.all([
-      getEventsByDateKey(key),
-      getMedicationByDateKey(key),
-      getCansTotal(),
-    ]);
-    setTodayCount(events.length);
+    const meds = await getMedicationByDateKey(todayKey());
     setMedTakenToday(meds.length > 0);
-    setCans(canTotal);
   }
 
   useEffect(() => {
@@ -103,34 +88,24 @@ export default function HomePage() {
         電子貓日記
       </h1>
 
-      <div className="mt-10 flex flex-1 flex-col items-center justify-center gap-10 w-full max-w-xs">
+      <div className="mt-24 flex flex-1 flex-col items-center justify-center gap-10 w-full max-w-xs">
         <div ref={spacerRef} style={{ width: 160, height: 160 }} aria-hidden />
 
-        <div ref={contentRef} className="relative z-10 flex w-full flex-col items-center gap-10">
-          <div className="flex w-full flex-col gap-3">
-            <Link
-              href="/record"
-              className="w-full rounded-2xl bg-foreground py-4 text-center text-[16px] font-medium text-background"
-            >
-              📝 記錄今天
-            </Link>
-            <button
-              onClick={handleMedication}
-              disabled={medTakenToday || medBusy}
-              className="w-full rounded-2xl border border-divider py-4 text-center text-[16px] font-medium disabled:opacity-50"
-              style={{ color: medTakenToday ? "var(--muted)" : "var(--foreground)" }}
-            >
-              {medTakenToday ? "✓ 已記錄" : "💊 記錄吃藥"}
-            </button>
-          </div>
-
-          <div className="text-[12px] text-muted tabular-nums">
-            今日 {todayCount ?? "…"} 筆　🥫 {cans ?? "…"}
-          </div>
-
-          <Link href="/companion" className="text-[12px] text-muted underline underline-offset-2">
-            2 分鐘陪伴
+        <div ref={contentRef} className="relative z-10 flex w-full flex-col items-center gap-3">
+          <Link
+            href="/record"
+            className="w-full rounded-2xl bg-foreground py-4 text-center text-[16px] font-medium text-background"
+          >
+            📝 記錄今天
           </Link>
+          <button
+            onClick={handleMedication}
+            disabled={medTakenToday || medBusy}
+            className="w-full rounded-2xl border border-divider py-4 text-center text-[16px] font-medium disabled:opacity-50"
+            style={{ color: medTakenToday ? "var(--muted)" : "var(--foreground)" }}
+          >
+            {medTakenToday ? "✓ 已記錄" : "💊 記錄吃藥"}
+          </button>
         </div>
       </div>
     </main>

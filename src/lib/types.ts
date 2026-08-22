@@ -98,6 +98,14 @@ export interface AppSettings {
   pinHash?: string;
   lastReminderEmailDateKey?: string;
   aiConsentAcknowledged?: boolean;
+  /**
+   * User's stated preference, not a server-side switch — the daily
+   * reminder is sent by a Vercel Cron job that has no way to read this
+   * device's IndexedDB, so turning this off only stops the "on/off" UI
+   * from reading as "on"; it does not itself stop the email. See the
+   * disclosure text next to the toggle in Settings.
+   */
+  reminderEnabled: boolean;
 }
 
 export interface DailyMood {

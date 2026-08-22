@@ -261,7 +261,7 @@ export async function saveCatPosition(x: number, y: number): Promise<void> {
 export async function getSettings(): Promise<AppSettings> {
   const db = await getDb();
   const s = await db.get("settings", "app");
-  return s ?? { id: "app", pinEnabled: false };
+  return s ?? { id: "app", pinEnabled: false, reminderEnabled: true };
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {

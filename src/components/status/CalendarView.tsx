@@ -1,7 +1,8 @@
 "use client";
 
-import { EMOTION_OPTIONS, type EmotionKey } from "@/lib/types";
+import { type EmotionKey } from "@/lib/types";
 import { calendarGrid, formatMonthLabel } from "@/lib/date";
+import { moodColorFor } from "@/lib/moodColors";
 
 export interface DayCellData {
   mood?: EmotionKey;
@@ -20,8 +21,13 @@ interface CalendarViewProps {
 
 const WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"];
 
-function emojiFor(key?: EmotionKey): string | undefined {
-  return EMOTION_OPTIONS.find((o) => o.key === key)?.emoji;
+function PillIcon({ color = "var(--muted)" }: { color?: string }) {
+  return (
+    <svg width="11" height="6" viewBox="0 0 24 12" aria-hidden>
+      <rect x="1" y="1" width="22" height="10" rx="5" fill="none" stroke={color} strokeWidth="1.5" />
+      <line x1="12" y1="1" x2="12" y2="11" stroke={color} strokeWidth="1.5" />
+    </svg>
+  );
 }
 
 export function CalendarView({ year, month, data, onPrevMonth, onNextMonth, onSelectDay }: CalendarViewProps) {
@@ -48,13 +54,13 @@ export function CalendarView({ year, month, data, onPrevMonth, onNextMonth, onSe
       <div className="grid grid-cols-7 gap-1">
         {cells.map((cell) => {
           const info = data[cell.dateKey];
-          const mood = emojiFor(info?.mood);
+          const moodColor = moodColorFor(info?.mood);
           return (
             <button
               key={cell.dateKey}
               onClick={() => cell.inMonth && onSelectDay(cell.dateKey)}
               disabled={!cell.inMonth}
-              className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg"
+              className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg"
               style={{
                 opacity: cell.inMonth ? 1 : 0.28,
                 background: cell.isToday ? "var(--divider)" : "transparent",
@@ -62,8 +68,22 @@ export function CalendarView({ year, month, data, onPrevMonth, onNextMonth, onSe
               }}
             >
               <span className="text-[13px] tabular-nums">{cell.day}</span>
-              <span className="text-[12px] leading-none">{mood ?? (info?.hasEvents ? "·" : "")}</span>
-              <span className="text-[10px] leading-none">{info?.medTaken ? "💊" : "○"}</span>
+              <span style={{ width: 7, height: 7, display: "block" }}>
+                {moodColor && (
+                  <span
+                    style={{
+                      display: "block",
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      background: moodColor,
+                    }}
+                  />
+                )}
+              </span>
+              <span style={{ height: 6, display: "flex", alignItems: "center" }}>
+                {info?.medTaken && <PillIcon />}
+              </span>
             </button>
           );
         })}

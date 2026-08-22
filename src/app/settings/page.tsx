@@ -46,7 +46,7 @@ export default function SettingsPage() {
       return;
     }
     const pinHash = await hashPin(pinInput);
-    const updated: AppSettings = { id: "app", pinEnabled: true, pinHash };
+    const updated: AppSettings = { ...settings!, pinEnabled: true, pinHash };
     await saveSettings(updated);
     setSettings(updated);
     setPinInput("");
@@ -54,11 +54,18 @@ export default function SettingsPage() {
   }
 
   async function disablePin() {
-    const updated: AppSettings = { id: "app", pinEnabled: false };
+    const updated: AppSettings = { ...settings!, pinEnabled: false, pinHash: undefined };
     await saveSettings(updated);
     setSettings(updated);
     clearPlatformAuthenticator();
     setBiometricRegistered(false);
+  }
+
+  async function toggleReminder() {
+    if (!settings) return;
+    const updated: AppSettings = { ...settings, reminderEnabled: !settings.reminderEnabled };
+    await saveSettings(updated);
+    setSettings(updated);
   }
 
   async function enableBiometric() {
@@ -193,10 +200,31 @@ export default function SettingsPage() {
       </section>
 
       <section className="flex flex-col gap-3 border-t border-divider pt-5">
-        <span className="text-[13px] font-medium">每日提醒 Email</span>
+        <div className="flex items-center justify-between">
+          <span className="text-[13px] font-medium">每日提醒 Email</span>
+          <button
+            onClick={toggleReminder}
+            role="switch"
+            aria-checked={settings.reminderEnabled}
+            className="relative h-6 w-10 rounded-full transition-colors"
+            style={{ background: settings.reminderEnabled ? "var(--foreground)" : "var(--divider)" }}
+          >
+            <span
+              className="absolute top-0.5 h-5 w-5 rounded-full bg-background transition-transform"
+              style={{ transform: settings.reminderEnabled ? "translateX(18px)" : "translateX(2px)" }}
+            />
+          </button>
+        </div>
         <p className="text-[12px] leading-relaxed text-muted">
-          每天 22:00（台北時間）會寄送一封提醒信，內容只有「記錄一下今天」與按鈕，不包含情緒、吃藥狀態或日記內容。
+          提醒時間固定為每天 22:00（台北時間），內容只有「記錄一下今天」與按鈕，不包含情緒、吃藥狀態或日記內容。
         </p>
+        {!settings.reminderEnabled && (
+          <p className="text-[12px] leading-relaxed text-muted">
+            這個開關只記錄在這台裝置上的偏好；實際寄信是由 Vercel 排程觸發、沒有辦法讀取裝置上的設定，關閉這裡不會真的停止寄信。要真正停止，需要到 Vercel 專案移除
+            <code className="mx-1 rounded bg-divider px-1">vercel.json</code>
+            的 cron 設定，或移除 <code className="mx-1 rounded bg-divider px-1">RESEND_API_KEY</code>。
+          </p>
+        )}
         <button
           onClick={sendTestEmail}
           disabled={emailSending}
