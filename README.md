@@ -9,7 +9,7 @@ Mobile-first：主要使用裝置是 iPhone Safari / iPhone PWA，Desktop 只是
 - [Next.js](https://nextjs.org/)（App Router）+ TypeScript + Tailwind CSS
 - IndexedDB（`idb`）做為唯一本機資料儲存，不使用 localStorage 存音檔
 - MediaRecorder API 錄音、Pointer Events 拖曳（家具與貓咪，觸控/滑鼠通用）
-- Groq（免費額度的 Whisper 語音轉文字，唯一會呼叫外部服務的功能）
+- Google Gemini API（免費額度，語音轉文字，唯一會呼叫外部服務的功能）
 - Resend（每日提醒 Email）+ Vercel Cron
 - PWA（manifest、iOS safe-area、可加入主畫面）
 - WebAuthn（Face ID / Touch ID，若裝置支援）+ PIN 作為隱私鎖
@@ -59,7 +59,7 @@ cp .env.example .env.local
 
 | 變數 | 用途 |
 | --- | --- |
-| `GROQ_API_KEY` | 語音轉文字（Groq 免費額度的 Whisper）——這是整個 App 唯一需要的 AI 相關金鑰 |
+| `GEMINI_API_KEY` | 語音轉文字（Google Gemini 免費額度）——這是整個 App 唯一需要的 AI 相關金鑰 |
 | `RESEND_API_KEY` | 每日提醒信 |
 | `RESEND_FROM_EMAIL` | 寄件地址（未驗證網域時用 `onboarding@resend.dev`） |
 | `REMINDER_EMAIL_TO` | 覆寫提醒信收件人 |
@@ -68,7 +68,7 @@ cp .env.example .env.local
 
 ### Speech-to-Text 設定
 
-1. 到 https://console.groq.com/keys 免費建立 `GROQ_API_KEY`（不需要信用卡），用於 `/api/stt`（Groq 代管的 Whisper），這是唯一會把使用者內容送到外部服務的功能，且只有在使用者主動按下「轉換成文字」時才會送出。
+1. 到 https://aistudio.google.com/apikey 免費建立 `GEMINI_API_KEY`（Google 帳號登入即可，免信用卡），用於 `/api/stt`，這是唯一會把使用者內容送到外部服務的功能，且只有在使用者主動按下「轉換成文字」時才會送出。
 2. 金鑰是 server-side 呼叫，不會出現在前端程式碼或瀏覽器網路請求中。
 3. 未設定金鑰時，錄音跟播放仍正常運作，只是不會自動產生文字，使用者可以自己手動輸入。
 
