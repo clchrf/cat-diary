@@ -67,8 +67,11 @@ export default function HomePage() {
   return (
     <main
       ref={containerRef}
-      className="relative flex h-full flex-col items-center overflow-hidden px-6"
-      style={{ touchAction: "none" }}
+      className="relative flex flex-col items-center overflow-hidden px-6"
+      style={{
+        touchAction: "none",
+        height: "calc(100dvh - var(--safe-top) - var(--bottom-nav-height) - var(--safe-bottom))",
+      }}
     >
       <HomeRoom
         containerRef={containerRef}

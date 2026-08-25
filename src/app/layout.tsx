@@ -35,9 +35,23 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="zh-TW" className="h-full antialiased">
-      <body className="flex h-dvh flex-col overflow-hidden">
+      <body className="min-h-dvh">
         <LockGate>
-          <div className="min-h-0 flex-1 overflow-y-auto safe-top">{children}</div>
+          {/*
+            The nav is `position: fixed` (see BottomNav.tsx) and sized only
+            by its own content + safe area — never by viewport height — so
+            it can't be stretched or shifted by page content. The body
+            itself is the scroll container (standard document flow, no
+            nested vh/dvh-based scroll box) and this bottom padding is the
+            single place that reserves exactly the fixed nav's own height
+            so content never ends up hidden underneath it.
+          */}
+          <div
+            className="safe-top"
+            style={{ paddingBottom: "calc(var(--bottom-nav-height) + var(--safe-bottom))" }}
+          >
+            {children}
+          </div>
           <BottomNav />
         </LockGate>
       </body>

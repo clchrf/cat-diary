@@ -13,16 +13,18 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="shrink-0 border-t border-divider bg-background safe-bottom">
-      <div className="mx-auto flex max-w-md">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-divider bg-background safe-bottom"
+      style={{ height: "calc(var(--bottom-nav-height) + var(--safe-bottom))" }}
+    >
+      <div className="mx-auto flex max-w-md" style={{ height: "var(--bottom-nav-height)" }}>
         {TABS.map((tab) => {
           const active = pathname === tab.href;
           return (
             <Link
               key={tab.href}
               href={tab.href}
-              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-center"
-              style={{ minHeight: 52 }}
+              className="flex flex-1 flex-col items-center justify-center gap-0.5 text-center"
             >
               <span className="text-[20px] leading-none" style={{ opacity: active ? 1 : 0.55 }}>
                 {tab.icon}

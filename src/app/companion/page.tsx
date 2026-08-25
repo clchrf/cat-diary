@@ -65,7 +65,10 @@ export default function CompanionPage() {
   const ss = String(remaining % 60).padStart(2, "0");
 
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col items-center px-6">
+    <main
+      className="mx-auto flex max-w-md flex-col items-center px-6"
+      style={{ minHeight: "calc(100dvh - var(--safe-top) - var(--bottom-nav-height) - var(--safe-bottom))" }}
+    >
       <div className="flex w-full items-center justify-between py-2">
         <button onClick={() => router.back()} className="-m-2 p-2 text-[16px] text-muted">
           {done ? "" : "結束"}

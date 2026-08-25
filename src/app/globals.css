@@ -9,6 +9,12 @@
   --danger: #c0392b;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Single source of truth for the bottom nav's own tab-row height — used
+     both by BottomNav's row height and by the page content's bottom
+     padding, so the two can never drift out of sync and leave either a
+     gap or hidden content. Deliberately a plain px height (not vh/dvh/%),
+     since the nav itself must never be sized off the viewport. */
+  --bottom-nav-height: 56px;
 }
 
 @theme inline {

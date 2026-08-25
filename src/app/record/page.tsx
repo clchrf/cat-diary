@@ -9,6 +9,7 @@ import { MoodPicker } from "@/components/record/MoodPicker";
 import { saveEvent, getMedicationByDateKey, markMedicationTaken } from "@/lib/db";
 import { todayKey, nowIso, formatDateLabel } from "@/lib/date";
 import { scanNeedsAttention } from "@/lib/safetyCheck";
+import { analyzeEventInBackground } from "@/lib/aiAnalysis";
 import type { DiaryEvent, EmotionKey, TextOrVoiceField } from "@/lib/types";
 
 type EntryMode = "record" | "text" | null;
@@ -85,6 +86,9 @@ export default function RecordPage() {
       event.howHandled?.text,
     ]);
     await saveEvent(event);
+    // Quiet background reflection summary — never awaited, so a slow or
+    // unavailable AI call can never delay or block finishing the save.
+    void analyzeEventInBackground(event.id);
     router.push("/");
   }
 
@@ -139,6 +143,7 @@ export default function RecordPage() {
           <p className="text-[12px] leading-relaxed text-muted">
             以下欄位都不是必填，只記一句話也可以直接儲存。
             {mode === "record" && "錄音會送至 AI 服務轉換成文字，需要你按下「轉換成文字」才會送出。"}
+            儲存後，文字內容會安靜地送到 AI 整理一段簡短的情緒摘要（不做診斷、不給建議），結果會出現在事件詳情與狀況頁。
           </p>
 
           {mode === "record" ? (

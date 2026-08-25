@@ -11,6 +11,10 @@ import { scanNeedsAttention } from "@/lib/safetyCheck";
 import { EMOTION_OPTIONS } from "@/lib/types";
 import type { DiaryEvent } from "@/lib/types";
 
+function moodLabel(key?: string): string | undefined {
+  return key ? EMOTION_OPTIONS.find((o) => o.key === key)?.label : undefined;
+}
+
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = usePromise(params);
   const router = useRouter();
@@ -111,6 +115,27 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           </span>
         )}
       </div>
+
+      <section className="flex flex-col gap-2 rounded-xl border border-divider p-3 text-[13px]">
+        <span className="font-medium text-foreground">AI 整理</span>
+        {event.aiMoodAnalysis?.status === "ok" ? (
+          <div className="flex flex-col gap-1.5 text-muted">
+            <div>
+              情緒：{moodLabel(event.aiMoodAnalysis.primaryMood) ?? "無法判斷"}
+              {event.aiMoodAnalysis.secondaryMoods && event.aiMoodAnalysis.secondaryMoods.length > 0
+                ? `（次要：${event.aiMoodAnalysis.secondaryMoods.map(moodLabel).filter(Boolean).join("、")}）`
+                : ""}
+            </div>
+            {event.aiMoodAnalysis.emotionIntensity && <div>強度：{event.aiMoodAnalysis.emotionIntensity}</div>}
+            {event.aiMoodAnalysis.importantEvents && event.aiMoodAnalysis.importantEvents.length > 0 && (
+              <div>事件：{event.aiMoodAnalysis.importantEvents.join("、")}</div>
+            )}
+            {event.aiMoodAnalysis.summary && <div className="text-foreground">{event.aiMoodAnalysis.summary}</div>}
+          </div>
+        ) : (
+          <span className="text-muted">尚未整理</span>
+        )}
+      </section>
 
       <div className="flex flex-col gap-4">
         <FieldDisplay label="發生了什麼事" field={event.whatHappened} />
