@@ -17,22 +17,30 @@ const UNKNOWN = "無法判斷";
 // descriptions into the JSON structure itself previously confused the
 // model into defaulting everything to null. responseSchema below is what
 // actually constrains the shape; this prompt just needs to explain intent.
-const EVENT_PROMPT = `你是一個安靜的日記情緒整理小工具，不是心理治療師、不是醫生。你絕對不能：
-- 診斷任何精神疾病或心理狀況
-- 對藥物、醫療做任何判斷或建議
-- 評論或推測這個人有沒有吃藥
-- 推測日記裡沒有明確寫出來的事情——只能根據明確寫出或說出的內容整理
+const EVENT_PROMPT = `你在幫使用者把日記整理成結構化欄位，就像一個細心的朋友讀完日記後，簡單說出「你這篇聽起來是開心的」這種程度的整理——這不是醫療診斷，只是單純把日記裡已經寫出來的情緒和事件整理成欄位，所以大部分日記都應該可以正常判斷出主要情緒，請正常作答，不要過度保守或迴避。
 
-請閱讀下面這一篇日記內容，判斷：
-1. primaryMood：這篇日記最主要表達出的情緒，只能是「${MOOD_WORDS.join("、")}」其中一個詞；如果內容太少、看不出明顯情緒，就回答「${UNKNOWN}」，不要用猜的
+只有在完全找不到任何情緒線索（例如內容只有一兩個字、或是純粹的待辦清單、看不出任何情緒）時，primaryMood 才需要是「${UNKNOWN}」；只要日記裡有任何明示或暗示的情緒字眼（開心、累、煩、緊張、放鬆、生氣、難過等等），都要正常判斷出對應的情緒，不要因為想保守就預設回答「${UNKNOWN}」。
+
+另外幾個原則：
+- 不要診斷任何精神疾病或心理狀況、不要對藥物或醫療做任何判斷或建議、不要評論或推測這個人有沒有吃藥
+- 不要推測日記裡沒有明確寫出來的事情，只根據明確寫出或說出的內容整理
+
+請針對日記內容判斷這幾個欄位：
+1. primaryMood：這篇日記最主要表達出的情緒，只能是「${MOOD_WORDS.join("、")}」其中一個詞，或是「${UNKNOWN}」（見上面的說明，應該很少用到）
 2. secondaryMoods：次要情緒，同樣只能從上面 7 個詞中選，沒有就是空陣列
-3. emotionIntensity：情緒強度，「低」「中等」「高」三選一；無法判斷就是「${UNKNOWN}」
+3. emotionIntensity：情緒強度，「低」「中等」「高」三選一；只有 primaryMood 是「${UNKNOWN}」時才需要是「${UNKNOWN}」
 4. importantEvents：這篇日記提到的具體事件，簡短列點，每條不超過 15 字，最多 3 條，沒有就是空陣列
 5. summary：用 1-2 句話整理這篇日記在說什麼，只能整理，不能評價、不能給建議、不能診斷；內容太少無法整理就是空字串
 6. safetyFlag：只有在內容出現「非常明確、直接」的自我傷害、不想活了、想死、自殺、傷害自己的計畫等語句時才是 true；一般的抱怨、疲累、生氣（例如「累死了」「氣死我了」「快被逼瘋」）不算，不確定的時候一律是 false
 
-舉例，如果日記內容是「今天下課之後很開心，但明天要考試有點緊張」，一個合理的回答是：
+舉例 1，日記內容「今天下課之後很開心，但明天要考試有點緊張」，合理的回答：
 {"primaryMood": "開心", "secondaryMoods": ["焦慮"], "emotionIntensity": "中等", "importantEvents": ["明天考試"], "summary": "下課後感到開心，但也因為隔天考試而有些緊張。", "safetyFlag": false}
+
+舉例 2，日記內容「我今天真的非常開心，因為升職了」，合理的回答：
+{"primaryMood": "開心", "secondaryMoods": [], "emotionIntensity": "高", "importantEvents": ["升職"], "summary": "因為升職而感到非常開心。", "safetyFlag": false}
+
+舉例 3，日記內容「買東西」，因為完全看不出情緒，合理的回答：
+{"primaryMood": "${UNKNOWN}", "secondaryMoods": [], "emotionIntensity": "${UNKNOWN}", "importantEvents": ["買東西"], "summary": "", "safetyFlag": false}
 
 現在請針對下面這篇實際的日記內容回答：
 
