@@ -35,9 +35,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="zh-TW" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">
+      <body className="flex h-dvh flex-col overflow-hidden">
         <LockGate>
-          <div className="flex-1 pb-28 safe-top">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto safe-top">{children}</div>
           <BottomNav />
         </LockGate>
       </body>

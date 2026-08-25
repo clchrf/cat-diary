@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CatSprite } from "@/components/cat/CatSprite";
 import { VoiceRecorder } from "@/components/record/VoiceRecorder";
-import { saveAudio, saveCompanionSession, addCans } from "@/lib/db";
+import { saveAudio, saveCompanionSession } from "@/lib/db";
 import type { AudioRecord } from "@/lib/types";
 
 const TOTAL_SECONDS = 120;
@@ -43,7 +43,6 @@ export default function CompanionPage() {
           durationSeconds: TOTAL_SECONDS,
           completed: true,
         });
-        await addCans(1, "companion");
         setDone(true);
       })();
     }
@@ -66,7 +65,7 @@ export default function CompanionPage() {
   const ss = String(remaining % 60).padStart(2, "0");
 
   return (
-    <main className="mx-auto flex min-h-[calc(100dvh-7rem)] max-w-md flex-col items-center px-6">
+    <main className="mx-auto flex min-h-full max-w-md flex-col items-center px-6">
       <div className="flex w-full items-center justify-between py-2">
         <button onClick={() => router.back()} className="-m-2 p-2 text-[16px] text-muted">
           {done ? "" : "結束"}
@@ -92,7 +91,6 @@ export default function CompanionPage() {
         ) : (
           <>
             <div className="text-[17px] font-medium">完成</div>
-            <div className="text-[13px] text-muted">🥫 +1</div>
             <button
               onClick={() => router.push("/")}
               className="mt-4 rounded-2xl bg-foreground px-8 py-3 text-[15px] font-medium text-background"

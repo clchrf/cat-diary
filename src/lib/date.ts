@@ -109,6 +109,16 @@ export function formatFullDateLabel(dateKey: string): string {
   return `${m} 月 ${d} 日`;
 }
 
+/** True once it's past the given hour (24h, Asia/Taipei) today — used only to
+ * decide whether the cat can settle into a quiet/resting state; never used
+ * to imply "medication not taken". */
+export function isPastHourToday(hour: number): boolean {
+  const nowHour = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "2-digit", hourCycle: "h23" }).format(new Date())
+  );
+  return nowHour >= hour;
+}
+
 export function dateKeysInRange(days: number): string[] {
   const keys: string[] = [];
   const now = new Date();

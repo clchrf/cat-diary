@@ -4,9 +4,6 @@ import type {
   AudioRecord,
   MedicationRecord,
   CompanionSession,
-  CanLedgerEntry,
-  OwnedFurniture,
-  RoomPlacement,
   AppSettings,
   DailyMood,
   CatPosition,
@@ -32,18 +29,6 @@ interface CatDiarySchema extends DBSchema {
     key: string;
     value: CompanionSession;
   };
-  cans: {
-    key: string;
-    value: CanLedgerEntry;
-  };
-  furniture: {
-    key: string;
-    value: OwnedFurniture;
-  };
-  roomLayout: {
-    key: string;
-    value: RoomPlacement;
-  };
   settings: {
     key: string;
     value: AppSettings;
@@ -59,7 +44,7 @@ interface CatDiarySchema extends DBSchema {
 }
 
 const DB_NAME = "cat-diary";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase<CatDiarySchema>> | null = null;
 
@@ -82,14 +67,22 @@ export function getDb(): Promise<IDBPDatabase<CatDiarySchema>> {
           medication.createIndex("by-dateKey", "dateKey");
 
           db.createObjectStore("companionSessions", { keyPath: "id" });
-          db.createObjectStore("cans", { keyPath: "id" });
-          db.createObjectStore("furniture", { keyPath: "id" });
-          db.createObjectStore("roomLayout", { keyPath: "id" });
           db.createObjectStore("settings", { keyPath: "id" });
         }
         if (oldVersion < 2) {
           db.createObjectStore("dailyMoods", { keyPath: "dateKey" });
           db.createObjectStore("catPosition", { keyPath: "id" });
+        }
+        if (oldVersion < 3) {
+          // The room/furniture/cans system was removed entirely — drop its
+          // stores. Events, audio, medication, companion sessions, moods and
+          // the cat's own position are untouched. These store names no
+          // longer exist in CatDiarySchema, so the raw (unpromisified)
+          // objectStoreNames/deleteObjectStore calls need a loose cast.
+          const raw = db as unknown as { objectStoreNames: DOMStringList; deleteObjectStore(name: string): void };
+          for (const name of ["cans", "furniture", "roomLayout"]) {
+            if (raw.objectStoreNames.contains(name)) raw.deleteObjectStore(name);
+          }
         }
       },
     });
@@ -153,6 +146,13 @@ export async function recordMedication(entry: MedicationRecord): Promise<void> {
   await db.put("medication", entry);
 }
 
+/** Idempotent "mark taken" for a given day — a day already marked isn't duplicated. */
+export async function markMedicationTaken(dateKey: string): Promise<void> {
+  const existing = await getMedicationByDateKey(dateKey);
+  if (existing.length > 0) return;
+  await recordMedication({ id: crypto.randomUUID(), dateKey, timestamp: new Date().toISOString() });
+}
+
 export async function getMedicationByDateKey(dateKey: string): Promise<MedicationRecord[]> {
   const db = await getDb();
   return db.getAllFromIndex("medication", "by-dateKey", dateKey);
@@ -178,52 +178,6 @@ export async function saveCompanionSession(session: CompanionSession): Promise<v
 export async function getAllCompanionSessions(): Promise<CompanionSession[]> {
   const db = await getDb();
   return db.getAll("companionSessions");
-}
-
-// ---------- Cans ----------
-export async function addCans(delta: number, reason: CanLedgerEntry["reason"]): Promise<number> {
-  const db = await getDb();
-  const entry: CanLedgerEntry = {
-    id: crypto.randomUUID(),
-    delta,
-    reason,
-    timestamp: new Date().toISOString(),
-  };
-  await db.put("cans", entry);
-  return getCansTotal();
-}
-
-export async function getCansTotal(): Promise<number> {
-  const db = await getDb();
-  const all = await db.getAll("cans");
-  return all.reduce((sum, e) => sum + e.delta, 0);
-}
-
-// ---------- Furniture ----------
-export async function purchaseFurniture(id: string): Promise<void> {
-  const db = await getDb();
-  await db.put("furniture", { id, purchasedAt: new Date().toISOString() });
-}
-
-export async function getOwnedFurniture(): Promise<OwnedFurniture[]> {
-  const db = await getDb();
-  return db.getAll("furniture");
-}
-
-// ---------- Room layout ----------
-export async function saveRoomPlacement(placement: RoomPlacement): Promise<void> {
-  const db = await getDb();
-  await db.put("roomLayout", placement);
-}
-
-export async function removeRoomPlacement(id: string): Promise<void> {
-  const db = await getDb();
-  await db.delete("roomLayout", id);
-}
-
-export async function getRoomLayout(): Promise<RoomPlacement[]> {
-  const db = await getDb();
-  return db.getAll("roomLayout");
 }
 
 // ---------- Daily mood ----------
@@ -277,9 +231,6 @@ export async function exportAllData(): Promise<Record<string, unknown[]>> {
     "audio",
     "medication",
     "companionSessions",
-    "cans",
-    "furniture",
-    "roomLayout",
     "dailyMoods",
     "catPosition",
     "settings",
@@ -309,9 +260,6 @@ export async function importAllData(data: Record<string, unknown[]>): Promise<vo
     "audio",
     "medication",
     "companionSessions",
-    "cans",
-    "furniture",
-    "roomLayout",
     "dailyMoods",
     "catPosition",
     "settings",
@@ -340,9 +288,6 @@ export async function clearAllData(): Promise<void> {
     "audio",
     "medication",
     "companionSessions",
-    "cans",
-    "furniture",
-    "roomLayout",
     "dailyMoods",
     "catPosition",
     "settings",

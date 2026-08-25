@@ -73,25 +73,6 @@ export interface CompanionSession {
   completed: boolean;
 }
 
-export interface CanLedgerEntry {
-  id: string;
-  delta: number;
-  reason: "companion" | "record" | "medication" | "furniture_purchase";
-  timestamp: string;
-}
-
-export interface OwnedFurniture {
-  id: string; // furnitureId
-  purchasedAt: string;
-}
-
-export interface RoomPlacement {
-  id: string; // furnitureId
-  x: number;
-  y: number;
-  z?: number;
-}
-
 export interface AppSettings {
   id: "app";
   pinEnabled: boolean;

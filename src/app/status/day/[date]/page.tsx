@@ -3,6 +3,7 @@
 import { useEffect, useState, use as usePromise } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CatSprite } from "@/components/cat/CatSprite";
 import { DailyMoodPicker } from "@/components/status/DailyMoodPicker";
 import { getEventsByDateKey, getMedicationByDateKey, getDailyMood, saveDailyMood } from "@/lib/db";
 import { computeAutoDailyMood } from "@/lib/stats";
@@ -57,7 +58,12 @@ export default function DayDetailPage({ params }: { params: Promise<{ date: stri
 
       <section className="flex flex-col gap-2 border-t border-divider pt-5">
         <span className="text-[13px] text-muted">吃藥</span>
-        <span className="text-[14px]">{medTaken ? "💊 已記錄" : "尚未記錄"}</span>
+        <div className="flex items-center gap-2">
+          {/* Only shown once taken is confirmed — an unrecorded day stays
+              plain text, never a sleeping/negative cat. */}
+          {medTaken && <CatSprite animation="idle_sit" scale={1.5} fps={3} />}
+          <span className="text-[14px]">{medTaken ? "已記錄" : "尚未記錄"}</span>
+        </div>
       </section>
 
       <section className="flex flex-col gap-2 border-t border-divider pt-5">

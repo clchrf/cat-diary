@@ -238,11 +238,11 @@ export default function SettingsPage() {
       <section className="flex flex-col gap-2 border-t border-divider pt-5 text-[12px] leading-relaxed text-muted">
         <span className="text-[13px] font-medium text-foreground">素材授權</span>
         <p>
-          貓咪與植物像素素材來自 Last Tick（
+          貓咪像素素材來自 Last Tick（
           <a href="https://last-tick.itch.io" className="underline" target="_blank" rel="noreferrer">
             last-tick.itch.io
           </a>
-          ）的「32x32 Pixel Kittens Cats」與「Pixel Interiors 32x32」免費版，依作者授權允許個人與商業用途使用，並依作者要求標示創作者為 Last Tick。
+          ）的「32x32 Pixel Kittens Cats」免費版，依作者授權允許個人與商業用途使用，並依作者要求標示創作者為 Last Tick。
         </p>
       </section>
     </main>

@@ -1,23 +1,26 @@
 import { IDLE_POOL, CLICK_REACTION_POOL } from "@/lib/catSprite";
-import { randomPointInContainer, clampToContainer } from "@/lib/roam";
+import { clampToContainer } from "@/lib/roam";
 import { saveCatPosition } from "@/lib/db";
 
 const DOUBLE_TAP_MS = 400;
 const DOUBLE_TAP_DIST = 40; // px — second tap must land near the first to count as a double-tap
 const DRAG_THRESHOLD = 8;
 const INTERACTION_PAUSE_MS = 4000;
-// A leisurely, constant walking speed for autonomous wandering — duration
-// is derived from actual distance so a long walk doesn't get rushed to
-// fit a fixed time window, clamped to stay calm either way.
-const WALK_SPEED_PX_PER_SEC = 22;
-const MIN_WALK_MS = 3500;
-const MAX_WALK_MS = 7000;
+// A leisurely, constant walking speed for autonomous wandering. Each wander
+// picks a duration first (3-6s) and derives a reachable distance from it —
+// NOT the other way around — so a long diagonal across the page can never
+// force a speed spike; it just takes longer legs to get there over several
+// wander cycles instead of one fast burst.
+const WALK_SPEED_PX_PER_SEC = 16;
+const WANDER_MIN_MS = 3000;
+const WANDER_MAX_MS = 6000;
 // A summoned walk (double-tap) reacts instantly but still travels at the
 // same unhurried pace — "fast reaction" and "slow movement" are different
-// things.
-const SUMMON_SPEED_PX_PER_SEC = 26;
-const SUMMON_MIN_MS = 800;
-const SUMMON_MAX_MS = 4000;
+// things. The max duration is generous so speed (not a time cap) governs
+// even a call from clear across the page.
+const SUMMON_SPEED_PX_PER_SEC = 20;
+const SUMMON_MIN_MS = 500;
+const SUMMON_MAX_MS = 12000;
 // Stop just short of the exact tapped point rather than centering on it.
 const SUMMON_STOP_SHORT_MIN = 10;
 const SUMMON_STOP_SHORT_MAX = 30;
@@ -42,14 +45,14 @@ interface DragTarget {
  * which the React Compiler's static analysis (correctly) does not want to
  * see inside a component it's trying to auto-memoize.
  *
- * The cat can now walk anywhere on the page, including visually over
- * buttons/text — there is no exclusion-zone geometry here anymore. To
- * guarantee taps still reach real UI reliably even when the cat happens
- * to be sitting on top of it, the cat is deliberately kept BELOW the UI
- * content in stacking order (see HomeRoom.tsx) rather than given a
- * higher z-index: it can walk into a button's area, it just renders
- * slightly behind the button there instead of fully covering it, so a
- * tap on that button always reaches the button.
+ * The cat can walk anywhere on the page, including visually on top of
+ * buttons/text — there is no exclusion-zone geometry here. The cat's own
+ * element sits ABOVE the UI in stacking order (see HomeRoom.tsx) but with
+ * `pointer-events: none`, so a tap always hits whatever real UI is
+ * underneath rather than the cat's div. Because of that, this class can't
+ * rely on the DOM event target to know when a tap/drag landed "on the
+ * cat" — instead it hit-tests the pointer coordinates against the cat's
+ * current on-screen rect directly (see isCatHit).
  */
 export class CatWalker {
   private containerEl: HTMLElement | null = null;
@@ -65,10 +68,12 @@ export class CatWalker {
   private dragState: DragTarget | null = null;
   private lastTapTime = 0;
   private lastTapPos = { x: 0, y: 0 };
+  private sleeping = false;
 
   onAnimationChange: (name: string) => void = () => {};
   onDraggingChange: (dragging: boolean) => void = () => {};
   onReactingChange: (reacting: boolean) => void = () => {};
+  onWakingChange: (waking: boolean) => void = () => {};
   onReady: () => void = () => {};
 
   constructor(catSize: number) {
@@ -83,6 +88,34 @@ export class CatWalker {
   setDefaultPosition(pos: { x: number; y: number } | undefined) {
     this.defaultPosition = pos;
   }
+
+  /**
+   * Awake/asleep is driven purely by whether today's medication is marked
+   * taken (see page.tsx) — never by "not recorded yet". Falling asleep
+   * interrupts any walk in place; waking plays a yawn/stretch once (this
+   * pack has no dedicated wake animation) before resuming normal idling.
+   */
+  setSleeping(sleeping: boolean) {
+    if (this.sleeping === sleeping) return;
+    this.sleeping = sleeping;
+    if (sleeping) {
+      if (this.idleTimer) clearTimeout(this.idleTimer);
+      if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+      this.onReactingChange(false);
+      this.onWakingChange(false);
+      this.onAnimationChange("sleep");
+    } else {
+      this.onWakingChange(true);
+      this.onAnimationChange("yawn");
+    }
+  }
+
+  handleWakeComplete = () => {
+    this.onWakingChange(false);
+    if (this.sleeping) return; // flipped back to sleep mid-yawn
+    this.onAnimationChange(pickRandom(IDLE_POOL));
+    this.scheduleNextIdle();
+  };
 
   async start(loadPosition: () => Promise<{ x: number; y: number } | undefined>) {
     this.unmounted = false;
@@ -127,10 +160,11 @@ export class CatWalker {
   }
 
   private scheduleNextIdle = () => {
+    if (this.sleeping) return;
     if (this.idleTimer) clearTimeout(this.idleTimer);
     const delay = 5000 + Math.random() * 7000; // 5-12s, calm pacing
     this.idleTimer = setTimeout(() => {
-      if (this.unmounted) return;
+      if (this.unmounted || this.sleeping) return;
       const remaining = this.pausedUntil - Date.now();
       if (remaining > 0) {
         this.idleTimer = setTimeout(this.scheduleNextIdle, remaining);
@@ -184,10 +218,21 @@ export class CatWalker {
     this.rafId = requestAnimationFrame(frame);
   }
 
-  /** Autonomous random wandering — anywhere in the container, no exclusions. */
+  /**
+   * Autonomous random wandering — anywhere in the container, no exclusions.
+   * Picks a walk duration first (3-6s) and derives a reachable distance
+   * from the constant speed, then a random direction — so the actual
+   * on-screen pace stays constant no matter how far the pick lands,
+   * instead of a long diagonal getting rushed to fit a time budget.
+   */
   private wanderWalk = () => {
-    const dest = randomPointInContainer(this.containerSize(), this.catSize);
-    this.runWalk(dest, WALK_SPEED_PX_PER_SEC, MIN_WALK_MS, MAX_WALK_MS, () => {
+    if (this.sleeping) return;
+    const durationMs = WANDER_MIN_MS + Math.random() * (WANDER_MAX_MS - WANDER_MIN_MS);
+    const dist = WALK_SPEED_PX_PER_SEC * (durationMs / 1000) * (0.5 + Math.random() * 0.5);
+    const angle = Math.random() * Math.PI * 2;
+    const raw = { x: this.pos.x + Math.cos(angle) * dist, y: this.pos.y + Math.sin(angle) * dist };
+    const dest = clampToContainer(raw.x, raw.y, this.catSize, this.containerSize());
+    this.runWalk(dest, WALK_SPEED_PX_PER_SEC, WANDER_MIN_MS, WANDER_MAX_MS, () => {
       this.onAnimationChange(pickRandom(IDLE_POOL));
       this.scheduleNextIdle();
     });
@@ -195,6 +240,7 @@ export class CatWalker {
 
   /** Summoned by a double-tap — reacts immediately, still walks at an unhurried pace. */
   private commandWalkTo(clientX: number, clientY: number) {
+    if (this.sleeping) return;
     const rect = this.containerEl?.getBoundingClientRect();
     if (!rect) return;
     this.pause();
@@ -223,6 +269,7 @@ export class CatWalker {
   }
 
   private triggerClickReaction() {
+    if (this.sleeping) return;
     this.pause();
     this.onReactingChange(true);
     this.onAnimationChange(pickRandom(CLICK_REACTION_POOL));
@@ -234,16 +281,23 @@ export class CatWalker {
     this.scheduleNextIdle();
   };
 
-  private isCatTarget(target: EventTarget | null): boolean {
-    return !!this.catEl && target instanceof Node && this.catEl.contains(target);
+  /**
+   * The cat's element has pointer-events:none (so it never blocks a tap on
+   * real UI beneath it), which means the DOM event target is never the cat
+   * — hit-testing is done against its current on-screen rect instead.
+   */
+  private isCatHit(clientX: number, clientY: number): boolean {
+    if (!this.catEl) return false;
+    const rect = this.catEl.getBoundingClientRect();
+    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
   }
 
   /** Call on pointerdown anywhere within the home page's interactive area. */
-  handleMainPointerDown = (target: EventTarget | null, clientX: number, clientY: number) => {
+  handleMainPointerDown = (clientX: number, clientY: number) => {
     // Any press anywhere interrupts autonomous wandering immediately —
     // the user is about to interact, one way or another.
     this.pause();
-    if (this.isCatTarget(target)) {
+    if (this.isCatHit(clientX, clientY)) {
       this.dragState = { startX: clientX, startY: clientY, moved: false };
     } else {
       this.dragState = null;

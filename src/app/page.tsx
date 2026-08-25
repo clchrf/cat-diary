@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { HomeRoom, HOME_CAT_SIZE } from "@/components/home/HomeRoom";
-import { getMedicationByDateKey, recordMedication, addCans } from "@/lib/db";
-import { todayKey, nowIso } from "@/lib/date";
+import { getMedicationByDateKey, markMedicationTaken } from "@/lib/db";
+import { todayKey, isPastHourToday } from "@/lib/date";
+
+const REMINDER_HOUR = 22;
 
 export default function HomePage() {
   const [medTakenToday, setMedTakenToday] = useState(false);
   const [medBusy, setMedBusy] = useState(false);
+  const [checkedToday, setCheckedToday] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const spacerRef = useRef<HTMLDivElement | null>(null);
@@ -17,6 +20,7 @@ export default function HomePage() {
   async function refresh() {
     const meds = await getMedicationByDateKey(todayKey());
     setMedTakenToday(meds.length > 0);
+    setCheckedToday(true);
   }
 
   useEffect(() => {
@@ -49,23 +53,30 @@ export default function HomePage() {
   async function handleMedication() {
     if (medTakenToday || medBusy) return;
     setMedBusy(true);
-    await recordMedication({ id: crypto.randomUUID(), dateKey: todayKey(), timestamp: nowIso() });
-    await addCans(1, "medication");
+    await markMedicationTaken(todayKey());
     await refresh();
     setMedBusy(false);
   }
 
+  // Sleeping is driven only by "today's medication is taken or not" — never
+  // by "not recorded yet". Before the daily reminder hour the cat stays
+  // awake regardless; only once it's past that hour and still unrecorded
+  // does it settle into a quiet rest, and it wakes the moment it's marked.
+  const sleeping = checkedToday && !medTakenToday && isPastHourToday(REMINDER_HOUR);
+
   return (
     <main
       ref={containerRef}
-      className="relative flex min-h-[calc(100dvh-5rem)] flex-col items-center overflow-hidden px-6"
+      className="relative flex h-full flex-col items-center overflow-hidden px-6"
       style={{ touchAction: "none" }}
     >
-      <HomeRoom containerRef={containerRef} defaultPosition={defaultCatPosition} />
+      <HomeRoom
+        containerRef={containerRef}
+        defaultPosition={defaultCatPosition}
+        sleeping={sleeping}
+      />
 
-      <h1 className="relative z-10 mt-4 text-[15px] font-medium tracking-wide text-foreground">電子貓日記</h1>
-
-      <div className="mt-32 flex flex-1 flex-col items-center justify-center gap-10 w-full max-w-xs">
+      <div className="mt-40 flex flex-1 flex-col items-center justify-center gap-10 w-full max-w-xs">
         <div ref={spacerRef} style={{ width: 160, height: 160 }} aria-hidden />
 
         <div className="relative z-10 flex w-full flex-col items-center gap-3">
@@ -81,7 +92,7 @@ export default function HomePage() {
             className="w-full rounded-2xl border border-divider py-4 text-center text-[16px] font-medium disabled:opacity-50"
             style={{ color: medTakenToday ? "var(--muted)" : "var(--foreground)" }}
           >
-            {medTakenToday ? "✓ 已記錄" : "💊 記錄吃藥"}
+            {medTakenToday ? "✓ 已記錄" : "記錄吃藥"}
           </button>
         </div>
       </div>

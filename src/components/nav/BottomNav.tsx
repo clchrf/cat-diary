@@ -6,14 +6,14 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/", label: "首頁", icon: "🐱" },
   { href: "/status", label: "狀況", icon: "📊" },
-  { href: "/room", label: "房間", icon: "🛋️" },
+  { href: "/review", label: "回顧", icon: "📖" },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 border-t border-divider bg-background/95 backdrop-blur safe-bottom z-40">
+    <nav className="shrink-0 border-t border-divider bg-background safe-bottom">
       <div className="mx-auto flex max-w-md">
         {TABS.map((tab) => {
           const active = pathname === tab.href;

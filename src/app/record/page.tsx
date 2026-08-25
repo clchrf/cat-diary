@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EntryModeSelect } from "@/components/record/EntryModeSelect";
 import { PrimaryVoiceEntry } from "@/components/record/PrimaryVoiceEntry";
 import { TextField } from "@/components/record/TextField";
 import { MoodPicker } from "@/components/record/MoodPicker";
-import { saveEvent, addCans } from "@/lib/db";
-import { todayKey, nowIso } from "@/lib/date";
+import { saveEvent, getMedicationByDateKey, markMedicationTaken } from "@/lib/db";
+import { todayKey, nowIso, formatDateLabel } from "@/lib/date";
 import { scanNeedsAttention } from "@/lib/safetyCheck";
 import type { DiaryEvent, EmotionKey, TextOrVoiceField } from "@/lib/types";
 
@@ -28,6 +28,7 @@ function toTextOrVoiceField(f: FieldState): TextOrVoiceField | undefined {
 export default function RecordPage() {
   const router = useRouter();
   const [mode, setMode] = useState<EntryMode>(null);
+  const [dateKey, setDateKey] = useState(() => todayKey());
   const [whatHappened, setWhatHappened] = useState(emptyField());
   const [firstReaction, setFirstReaction] = useState("");
   const [wantToDo, setWantToDo] = useState("");
@@ -36,6 +37,20 @@ export default function RecordPage() {
   const [emotions, setEmotions] = useState<EmotionKey[]>([]);
   const [emotionsCustom, setEmotionsCustom] = useState("");
   const [saving, setSaving] = useState(false);
+  const [medTaken, setMedTaken] = useState(false);
+  const [medBusy, setMedBusy] = useState(false);
+
+  useEffect(() => {
+    getMedicationByDateKey(dateKey).then((meds) => setMedTaken(meds.length > 0));
+  }, [dateKey]);
+
+  async function handleMarkMedication() {
+    if (medTaken || medBusy) return;
+    setMedBusy(true);
+    await markMedicationTaken(dateKey);
+    setMedTaken(true);
+    setMedBusy(false);
+  }
 
   const hasAnyContent =
     whatHappened.text.trim() ||
@@ -53,7 +68,7 @@ export default function RecordPage() {
     const event: DiaryEvent = {
       id: crypto.randomUUID(),
       createdAt: nowIso(),
-      dateKey: todayKey(),
+      dateKey,
       whatHappened: toTextOrVoiceField(whatHappened),
       firstReaction: firstReaction.trim() ? { text: firstReaction.trim() } : undefined,
       emotions: emotions.length ? emotions : undefined,
@@ -70,9 +85,10 @@ export default function RecordPage() {
       event.howHandled?.text,
     ]);
     await saveEvent(event);
-    await addCans(1, "record");
     router.push("/");
   }
+
+  const isToday = dateKey === todayKey();
 
   return (
     <main className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-2">
@@ -80,7 +96,7 @@ export default function RecordPage() {
         <button onClick={() => router.back()} className="-m-2 p-2 text-[16px] text-muted">
           取消
         </button>
-        <h1 className="text-[15px] font-medium">記錄今天</h1>
+        <h1 className="text-[15px] font-medium">{isToday ? "記錄今天" : `補記 ${formatDateLabel(dateKey)}`}</h1>
         <button
           onClick={handleSave}
           disabled={!hasAnyContent || saving || mode === null}
@@ -88,6 +104,32 @@ export default function RecordPage() {
         >
           儲存
         </button>
+      </div>
+
+      <div className="flex items-center justify-between rounded-xl border border-divider px-3 py-2.5">
+        <span className="text-[13px] text-muted">日期</span>
+        <input
+          type="date"
+          value={dateKey}
+          max={todayKey()}
+          onChange={(e) => e.target.value && setDateKey(e.target.value)}
+          className="bg-transparent text-[14px] text-foreground focus:outline-none"
+        />
+      </div>
+
+      <div className="flex items-center justify-between rounded-xl border border-divider px-3 py-2.5">
+        <span className="text-[13px] text-muted">吃藥</span>
+        {medTaken ? (
+          <span className="text-[13px] text-muted">✓ 已記錄</span>
+        ) : (
+          <button
+            onClick={handleMarkMedication}
+            disabled={medBusy}
+            className="rounded-full border border-divider px-3 py-1.5 text-[13px] disabled:opacity-50"
+          >
+            標記已吃
+          </button>
+        )}
       </div>
 
       {mode === null ? (
