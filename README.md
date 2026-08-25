@@ -96,7 +96,7 @@ cp .env.example .env.local
 
 貓咪與房間植物像素素材皆來自 [Last Tick](https://last-tick.itch.io)：
 
-- **32x32 Pixel Kittens Cats - Animated NPC**（免費版：gray / white / ginger 三色，全動畫）
+- **64x64 FREE Pixel Cats animated NPC**（免費版：black / ginger / white 三色，全動畫）
 - **Pixel Interiors 32x32**（免費版：plants.zip）
 
 授權允許個人與商業用途使用於作品中，禁止單獨轉售或重新散布素材本身；已依作者要求在「設定」頁面標示創作者為 Last Tick。原始下載檔與授權文字保留於 [`assets-raw/`](assets-raw)。

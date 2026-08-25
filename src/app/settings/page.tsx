@@ -242,7 +242,7 @@ export default function SettingsPage() {
           <a href="https://last-tick.itch.io" className="underline" target="_blank" rel="noreferrer">
             last-tick.itch.io
           </a>
-          ）的「32x32 Pixel Kittens Cats」與「Pixel Interiors 32x32」免費版，依作者授權允許個人與商業用途使用，並依作者要求標示創作者為 Last Tick。
+          ）的「64x64 FREE Pixel Cats animated NPC」與「Pixel Interiors 32x32」免費版，依作者授權允許個人與商業用途使用，並依作者要求標示創作者為 Last Tick。
         </p>
       </section>
     </main>

@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import Image from "next/image";
 import { CatSprite } from "@/components/cat/CatSprite";
-import { type CatColorway } from "@/lib/catSprite";
+import { CAT_FRAME_SIZE, type CatColorway } from "@/lib/catSprite";
 import { getFurnitureById } from "@/lib/furniture";
 import { getRoomLayout, saveRoomPlacement, removeRoomPlacement, getCatPosition } from "@/lib/db";
 import type { RoomPlacement } from "@/lib/types";
 import { CatWalker } from "./CatWalker";
 
-const CAT_SCALE = 5;
-export const HOME_CAT_SIZE = 32 * CAT_SCALE;
+const CAT_SCALE = 2.5;
+export const HOME_CAT_SIZE = CAT_FRAME_SIZE * CAT_SCALE;
 
 interface HomeRoomProps {
   /** The page's own positioned container — the cat/furniture are rendered
@@ -23,7 +23,7 @@ interface HomeRoomProps {
   colorway?: CatColorway;
 }
 
-export function HomeRoom({ containerRef, defaultPosition, colorway = "gray" }: HomeRoomProps) {
+export function HomeRoom({ containerRef, defaultPosition, colorway = "black" }: HomeRoomProps) {
   const catElRef = useRef<HTMLDivElement | null>(null);
   const walkerRef = useRef<CatWalker | null>(null);
   if (walkerRef.current == null) walkerRef.current = new CatWalker(HOME_CAT_SIZE);

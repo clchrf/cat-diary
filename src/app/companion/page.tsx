@@ -76,7 +76,7 @@ export default function CompanionPage() {
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-8">
-        <CatSprite animation={done ? "meow_stand" : "idle_sit"} scale={5} fps={done ? 8 : 5} />
+        <CatSprite animation={done ? "meow_stand" : "idle_sit"} scale={2.5} fps={done ? 8 : 5} />
 
         {!done ? (
           <>

@@ -25,7 +25,7 @@ interface CatSpriteProps {
 
 export function CatSprite({
   animation,
-  colorway = "gray",
+  colorway = "black",
   scale = 4,
   fps = 3,
   loop = true,
