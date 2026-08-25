@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CalendarView, type DayCellData } from "@/components/status/CalendarView";
 import { PromptPanel } from "@/components/shared/PromptPanel";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { MoodDot } from "@/components/shared/MoodDot";
 import { getEventsInDateKeys, getMedicationInDateKeys, getDailyMoodsInDateKeys } from "@/lib/db";
 import { dateKeysInRange, formatDateLabel, formatMonthLabel, formatTimeOfDay, monthDateKeys, todayKey } from "@/lib/date";
 import { buildRangePrompt } from "@/lib/aiPrompt";
 import { computeAutoDailyMood, computeEmotionDistribution, eventsNeedingAttention } from "@/lib/stats";
+import { moodColorFor } from "@/lib/moodColors";
 import type { DiaryEvent } from "@/lib/types";
 
 export default function StatusPage() {
@@ -81,8 +84,8 @@ export default function StatusPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-8 px-5 pb-16 pt-6">
-      <h1 className="text-[17px] font-semibold">狀況</h1>
+    <main className="mx-auto flex max-w-md flex-col gap-8 px-5 pb-16 pt-2">
+      <PageHeader title="狀況" />
 
       <CalendarView
         year={year}
@@ -102,10 +105,17 @@ export default function StatusPage() {
           <span>吃藥有記錄</span>
           <span className="text-foreground">{medDaysCount} 天</span>
         </div>
-        <div className="flex justify-between">
+        <div className="flex items-center justify-between">
           <span>主要情緒</span>
-          <span className="text-foreground">
-            {monthEmotionDist[0] ? `${monthEmotionDist[0].emoji} ${monthEmotionDist[0].label}` : "尚無資料"}
+          <span className="flex items-center gap-1.5 text-foreground">
+            {monthEmotionDist[0] ? (
+              <>
+                <MoodDot color={moodColorFor(monthEmotionDist[0].key) ?? "var(--muted)"} />
+                {monthEmotionDist[0].label}
+              </>
+            ) : (
+              "尚無資料"
+            )}
           </span>
         </div>
       </section>
@@ -124,8 +134,12 @@ export default function StatusPage() {
         ) : (
           <div className="flex flex-wrap gap-2">
             {recentEmotionDist.slice(0, 3).map((e) => (
-              <span key={e.key} className="rounded-full border border-divider px-3 py-1 text-[13px]">
-                {e.emoji} {e.label}
+              <span
+                key={e.key}
+                className="flex items-center gap-1.5 rounded-full border border-divider px-3 py-1 text-[13px]"
+              >
+                <MoodDot color={moodColorFor(e.key) ?? "var(--muted)"} />
+                {e.label}
               </span>
             ))}
           </div>

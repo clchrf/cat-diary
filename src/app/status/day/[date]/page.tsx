@@ -11,6 +11,7 @@ import { synthesizeDailySummary } from "@/lib/aiAnalysis";
 import { formatFullDateLabel, formatTimeOfDay, nowIso } from "@/lib/date";
 import { EMOTION_OPTIONS, type DiaryEvent, type EmotionKey } from "@/lib/types";
 import { moodColorFor } from "@/lib/moodColors";
+import { MoodDot } from "@/components/shared/MoodDot";
 
 function moodLabel(key?: EmotionKey): string | undefined {
   return key ? EMOTION_OPTIONS.find((o) => o.key === key)?.label : undefined;
@@ -79,17 +80,20 @@ export default function DayDetailPage({ params }: { params: Promise<{ date: stri
             <div className="flex flex-col gap-2 rounded-xl border border-divider p-3 text-[13px]">
               <div className="flex items-center gap-2">
                 <span className="text-muted">今日情緒</span>
-                {moodColor && (
-                  <span
-                    style={{ width: 8, height: 8, borderRadius: "50%", background: moodColor, display: "inline-block" }}
-                  />
-                )}
+                {moodColor && <MoodDot color={moodColor} />}
                 <span>{moodLabel(mood) ?? "無法判斷"}</span>
               </div>
               {secondaryMoods.length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-muted">次要情緒</span>
-                  <span>{secondaryMoods.map(moodLabel).filter(Boolean).join("、")}</span>
+                  <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {secondaryMoods.map((key) => (
+                      <span key={key} className="flex items-center gap-1.5">
+                        <MoodDot color={moodColorFor(key) ?? "var(--muted)"} />
+                        {moodLabel(key)}
+                      </span>
+                    ))}
+                  </span>
                 </div>
               )}
               {intensity && (

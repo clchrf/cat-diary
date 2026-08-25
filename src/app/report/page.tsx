@@ -135,7 +135,7 @@ export default function ReportPage() {
               <ul className="text-[13px] leading-relaxed">
                 {emotionDist.map((e) => (
                   <li key={e.key}>
-                    {e.emoji} {e.label}：{e.count} 次
+                    {e.label}：{e.count} 次
                   </li>
                 ))}
               </ul>

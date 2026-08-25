@@ -1,6 +1,8 @@
 "use client";
 
 import { EMOTION_OPTIONS, type EmotionKey } from "@/lib/types";
+import { moodColorFor } from "@/lib/moodColors";
+import { MoodDot } from "@/components/shared/MoodDot";
 
 interface DailyMoodPickerProps {
   value?: EmotionKey;
@@ -17,7 +19,7 @@ export function DailyMoodPicker({ value, onChange }: DailyMoodPickerProps) {
             key={opt.key}
             type="button"
             onClick={() => onChange(opt.key)}
-            className="rounded-full border px-4 py-2.5 text-[14px]"
+            className="flex items-center gap-1.5 rounded-full border px-4 py-2.5 text-[14px]"
             style={{
               minHeight: 44,
               borderColor: active ? "var(--foreground)" : "var(--divider)",
@@ -25,7 +27,8 @@ export function DailyMoodPicker({ value, onChange }: DailyMoodPickerProps) {
               color: active ? "var(--background)" : "var(--foreground)",
             }}
           >
-            {opt.emoji} {opt.label}
+            <MoodDot color={moodColorFor(opt.key) ?? "currentColor"} />
+            {opt.label}
           </button>
         );
       })}

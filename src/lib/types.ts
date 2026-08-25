@@ -1,11 +1,11 @@
 export const EMOTION_OPTIONS = [
-  { key: "happy", label: "開心", emoji: "😊" },
-  { key: "calm", label: "平靜", emoji: "😐" },
-  { key: "sad", label: "難過", emoji: "😞" },
-  { key: "angry", label: "生氣", emoji: "😠" },
-  { key: "anxious", label: "焦慮", emoji: "😰" },
-  { key: "tired", label: "疲累", emoji: "😴" },
-  { key: "confused", label: "困惑", emoji: "😕" },
+  { key: "happy", label: "開心" },
+  { key: "calm", label: "平靜" },
+  { key: "sad", label: "難過" },
+  { key: "angry", label: "生氣" },
+  { key: "anxious", label: "焦慮" },
+  { key: "tired", label: "疲累" },
+  { key: "confused", label: "困惑" },
 ] as const;
 
 export type EmotionKey = (typeof EMOTION_OPTIONS)[number]["key"];

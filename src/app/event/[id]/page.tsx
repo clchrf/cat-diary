@@ -9,6 +9,8 @@ import { formatDateLabel, formatTimeOfDay } from "@/lib/date";
 import { buildEventPrompt } from "@/lib/aiPrompt";
 import { scanNeedsAttention } from "@/lib/safetyCheck";
 import { EMOTION_OPTIONS } from "@/lib/types";
+import { moodColorFor } from "@/lib/moodColors";
+import { MoodDot } from "@/components/shared/MoodDot";
 import type { DiaryEvent } from "@/lib/types";
 
 function moodLabel(key?: string): string | undefined {
@@ -104,8 +106,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         {(event.emotions ?? []).map((key) => {
           const opt = EMOTION_OPTIONS.find((o) => o.key === key);
           return (
-            <span key={key} className="rounded-full border border-divider px-3 py-1 text-[13px]">
-              {opt?.emoji} {opt?.label}
+            <span
+              key={key}
+              className="flex items-center gap-1.5 rounded-full border border-divider px-3 py-1 text-[13px]"
+            >
+              <MoodDot color={moodColorFor(key) ?? "var(--muted)"} />
+              {opt?.label}
             </span>
           );
         })}
@@ -120,7 +126,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         <span className="font-medium text-foreground">AI 整理</span>
         {event.aiMoodAnalysis?.status === "ok" ? (
           <div className="flex flex-col gap-1.5 text-muted">
-            <div>
+            <div className="flex items-center gap-1.5">
+              {event.aiMoodAnalysis.primaryMood && (
+                <MoodDot color={moodColorFor(event.aiMoodAnalysis.primaryMood) ?? "var(--muted)"} />
+              )}
               情緒：{moodLabel(event.aiMoodAnalysis.primaryMood) ?? "無法判斷"}
               {event.aiMoodAnalysis.secondaryMoods && event.aiMoodAnalysis.secondaryMoods.length > 0
                 ? `（次要：${event.aiMoodAnalysis.secondaryMoods.map(moodLabel).filter(Boolean).join("、")}）`

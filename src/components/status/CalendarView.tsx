@@ -3,6 +3,7 @@
 import { type EmotionKey } from "@/lib/types";
 import { calendarGrid, formatMonthLabel } from "@/lib/date";
 import { moodColorFor } from "@/lib/moodColors";
+import { MoodDot } from "@/components/shared/MoodDot";
 
 export interface DayCellData {
   mood?: EmotionKey;
@@ -62,26 +63,14 @@ export function CalendarView({ year, month, data, onPrevMonth, onNextMonth, onSe
               >
                 {cell.day}
               </span>
-              <span style={{ width: 7, height: 7, display: "block" }}>
-                {moodColor && (
-                  <span
-                    style={{
-                      display: "block",
-                      width: 7,
-                      height: 7,
-                      borderRadius: "50%",
-                      background: moodColor,
-                    }}
-                  />
-                )}
-              </span>
-              <span style={{ height: 7, display: "flex", alignItems: "center" }}>
+              <span style={{ width: 8, height: 8, display: "block" }}>{moodColor && <MoodDot color={moodColor} />}</span>
+              <span style={{ height: 8, display: "flex", alignItems: "center" }}>
                 {info?.medTaken && (
                   <span
                     style={{
                       display: "block",
-                      width: 7,
-                      height: 7,
+                      width: 8,
+                      height: 8,
                       borderRadius: "50%",
                       border: "1.5px solid var(--muted)",
                     }}

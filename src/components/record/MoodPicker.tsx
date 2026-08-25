@@ -1,6 +1,8 @@
 "use client";
 
 import { EMOTION_OPTIONS, type EmotionKey } from "@/lib/types";
+import { moodColorFor } from "@/lib/moodColors";
+import { MoodDot } from "@/components/shared/MoodDot";
 
 interface MoodPickerProps {
   selected: EmotionKey[];
@@ -29,7 +31,7 @@ export function MoodPicker({ selected, onChange, customText, onCustomTextChange 
               key={opt.key}
               type="button"
               onClick={() => toggle(opt.key)}
-              className="rounded-full border px-4 py-2.5 text-[14px]"
+              className="flex items-center gap-1.5 rounded-full border px-4 py-2.5 text-[14px]"
               style={{
                 minHeight: 44,
                 borderColor: active ? "var(--foreground)" : "var(--divider)",
@@ -37,7 +39,8 @@ export function MoodPicker({ selected, onChange, customText, onCustomTextChange 
                 color: active ? "var(--background)" : "var(--foreground)",
               }}
             >
-              {opt.emoji} {opt.label}
+              <MoodDot color={moodColorFor(opt.key) ?? "currentColor"} />
+              {opt.label}
             </button>
           );
         })}

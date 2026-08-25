@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { PageHeader } from "@/components/shared/PageHeader";
 import { getAllEvents } from "@/lib/db";
 import { formatDateLabel, formatTimeOfDay } from "@/lib/date";
 import type { DiaryEvent } from "@/lib/types";
@@ -50,8 +51,8 @@ export default function ReviewPage() {
   }, [filtered]);
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-16 pt-6">
-      <h1 className="text-[17px] font-semibold">回顧</h1>
+    <main className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-16 pt-2">
+      <PageHeader title="回顧" />
 
       <input
         value={query}

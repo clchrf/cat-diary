@@ -24,6 +24,12 @@ const SUMMON_MAX_MS = 12000;
 // Stop just short of the exact tapped point rather than centering on it.
 const SUMMON_STOP_SHORT_MIN = 10;
 const SUMMON_STOP_SHORT_MAX = 30;
+// A brief pause on an idle pose before starting a walk in a new facing
+// direction — this is what makes a direction change read as the cat
+// noticing and turning, instead of an instant cut from one directional
+// sprite to another. Deliberately not a speed change: the walk itself still
+// runs at the same WALK_SPEED_PX_PER_SEC once it starts.
+const TURN_SETTLE_MS = 220;
 
 function pickRandom<T>(pool: readonly T[]): T {
   return pool[Math.floor(Math.random() * pool.length)];
@@ -64,11 +70,13 @@ export class CatWalker {
   private unmounted = true;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private clickTimer: ReturnType<typeof setTimeout> | null = null;
+  private turnTimer: ReturnType<typeof setTimeout> | null = null;
   private rafId: number | null = null;
   private dragState: DragTarget | null = null;
   private lastTapTime = 0;
   private lastTapPos = { x: 0, y: 0 };
   private sleeping = false;
+  private lastDirection: string | null = null;
 
   onAnimationChange: (name: string) => void = () => {};
   onDraggingChange: (dragging: boolean) => void = () => {};
@@ -135,6 +143,7 @@ export class CatWalker {
     this.unmounted = true;
     if (this.idleTimer) clearTimeout(this.idleTimer);
     if (this.clickTimer) clearTimeout(this.clickTimer);
+    if (this.turnTimer) clearTimeout(this.turnTimer);
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
   }
 
@@ -199,23 +208,41 @@ export class CatWalker {
         : dy > 0
           ? "walk_down"
           : "walk_up";
-    this.onAnimationChange(dir);
 
-    const durationMs = Math.min(maxMs, Math.max(minMs, (dist / speedPxPerSec) * 1000));
-    const startTime = performance.now();
+    const startTween = () => {
+      this.lastDirection = dir;
+      this.onAnimationChange(dir);
 
-    const frame = (now: number) => {
-      if (this.unmounted) return;
-      const t = Math.min(1, (now - startTime) / durationMs);
-      this.setTransform(from.x + dx * t, from.y + dy * t);
-      if (t < 1) {
-        this.rafId = requestAnimationFrame(frame);
-      } else {
-        this.persistPosition(dest.x, dest.y);
-        onArrive();
-      }
+      const durationMs = Math.min(maxMs, Math.max(minMs, (dist / speedPxPerSec) * 1000));
+      const startTime = performance.now();
+
+      const frame = (now: number) => {
+        if (this.unmounted) return;
+        const t = Math.min(1, (now - startTime) / durationMs);
+        this.setTransform(from.x + dx * t, from.y + dy * t);
+        if (t < 1) {
+          this.rafId = requestAnimationFrame(frame);
+        } else {
+          this.persistPosition(dest.x, dest.y);
+          onArrive();
+        }
+      };
+      this.rafId = requestAnimationFrame(frame);
     };
-    this.rafId = requestAnimationFrame(frame);
+
+    if (this.lastDirection !== null && this.lastDirection !== dir) {
+      // Brief settle on an idle pose before turning to face the new
+      // direction — a soft "notice, turn, then walk" beat instead of an
+      // instant cut between directional sprites. The walk that follows
+      // still runs at the same speed as always.
+      this.onAnimationChange(pickRandom(IDLE_POOL));
+      this.turnTimer = setTimeout(() => {
+        if (this.unmounted) return;
+        startTween();
+      }, TURN_SETTLE_MS);
+    } else {
+      startTween();
+    }
   }
 
   /**
@@ -265,6 +292,7 @@ export class CatWalker {
   private pause() {
     this.pausedUntil = Date.now() + INTERACTION_PAUSE_MS;
     if (this.idleTimer) clearTimeout(this.idleTimer);
+    if (this.turnTimer) clearTimeout(this.turnTimer);
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
   }
 

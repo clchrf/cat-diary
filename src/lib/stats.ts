@@ -3,7 +3,6 @@ import { EMOTION_OPTIONS, type DiaryEvent, type EmotionKey, type EmotionIntensit
 export interface EmotionCount {
   key: EmotionKey;
   label: string;
-  emoji: string;
   count: number;
 }
 
@@ -17,7 +16,6 @@ export function computeEmotionDistribution(events: DiaryEvent[]): EmotionCount[]
   return EMOTION_OPTIONS.map((opt) => ({
     key: opt.key,
     label: opt.label,
-    emoji: opt.emoji,
     count: counts.get(opt.key) ?? 0,
   })).filter((c) => c.count > 0)
     .sort((a, b) => b.count - a.count);

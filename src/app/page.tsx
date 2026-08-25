@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { HomeRoom, HOME_CAT_SIZE } from "@/components/home/HomeRoom";
+import { PageHeader } from "@/components/shared/PageHeader";
 import { getMedicationByDateKey, markMedicationTaken } from "@/lib/db";
 import { todayKey, isPastHourToday } from "@/lib/date";
 
@@ -73,13 +74,15 @@ export default function HomePage() {
         height: "calc(100dvh - var(--safe-top) - var(--bottom-nav-height) - var(--safe-bottom))",
       }}
     >
+      <PageHeader title="貓貓日記" />
+
       <HomeRoom
         containerRef={containerRef}
         defaultPosition={defaultCatPosition}
         sleeping={sleeping}
       />
 
-      <div className="mt-40 flex flex-1 flex-col items-center justify-center gap-10 w-full max-w-xs">
+      <div className="mt-48 flex flex-1 flex-col items-center justify-center gap-10 w-full max-w-xs">
         <div ref={spacerRef} style={{ width: 160, height: 160 }} aria-hidden />
 
         <div className="relative z-10 flex w-full flex-col items-center gap-3">
