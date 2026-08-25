@@ -127,11 +127,12 @@ export async function POST(req: NextRequest) {
     const parsed = (await callGemini(apiKey, prompt, EVENT_RESPONSE_SCHEMA)) as Record<string, unknown>;
 
     // Normalize the "cannot determine" sentinel back to null for the client.
+    const raw = JSON.stringify(parsed);
     if (parsed.primaryMood === UNKNOWN) parsed.primaryMood = null;
     if (parsed.emotionIntensity === UNKNOWN) parsed.emotionIntensity = null;
     if (parsed.summary === "") parsed.summary = null;
 
-    return NextResponse.json(parsed);
+    return NextResponse.json({ ...parsed, _debugRaw: raw });
   } catch (err) {
     return NextResponse.json({ error: "upstream_error", detail: String(err) }, { status: 502 });
   }
