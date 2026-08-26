@@ -24,33 +24,19 @@ const SUMMON_MAX_MS = 12000;
 // Stop just short of the exact tapped point rather than centering on it.
 const SUMMON_STOP_SHORT_MIN = 10;
 const SUMMON_STOP_SHORT_MAX = 30;
-// A pause on a calm, fixed idle pose before starting a walk in a new facing
-// direction — this is what makes a direction change read as the cat
-// noticing and turning, instead of an instant cut from one directional
-// sprite to another. Deliberately not a speed change: the walk itself still
-// runs at the same WALK_SPEED_PX_PER_SEC once it starts. A short first
-// attempt at this (220ms, plus a *random* idle pose from IDLE_POOL — which
-// includes visually "busier" poses like tailwag/groom) still read as
-// spinning on a real device, since ~75% of wander legs trigger a direction
-// change (4 possible directions, freshly randomized each leg): frequent,
-// brief, busy-looking pauses compound into a "keeps spinning" impression
-// even though each one is a single, correctly-gated turn. Fixed to a
-// single calm pose and a longer, more deliberate duration.
-const TURN_SETTLE_MS = 500;
+// Turning a corner is two distinct beats, not one: TURN (settle onto a
+// calm pose, facing away from walking) then a held PAUSE before the new
+// walk actually starts — WALK → TURN → PAUSE → WALK. Both were previously
+// one shorter combined step; the earlier fix's actual failure mode wasn't
+// duration, it was that this whole sequence could be cancelled mid-flight
+// and restarted from scratch (see turnInProgress below), which is what
+// produced the "keeps spinning" look — brief interrupted glimpses of a
+// half-finished turn, over and over, never one clean settle. Deliberately
+// not a walking-speed change: once WALK resumes it's at the same speed as
+// always.
+const TURN_DURATION_MS = 600;
+const TURN_PAUSE_DURATION_MS = 600;
 const TURN_POSE = "idle_sit";
-// The gap between the settle-timer and pause() is the real remaining
-// culprit: pause() runs on the very first pointerdown of EVERY tap
-// (including the 2nd tap of a double-tap, and any tap elsewhere on the
-// page while a walk happens to be mid-turn), and it unconditionally clears
-// turnTimer. A double-tap fired again — or even just poking the page —
-// before a pending turn resolves cancels it and starts a fresh one,
-// so `lastDirection` never actually advances and each new request re-picks
-// a "different" direction relative to that same stale value, endlessly
-// re-triggering the settle instead of ever completing it. This is direction
-// *thrashing*, not the settle duration being too short — the fix is a
-// floor on how soon another direction change is allowed to actually commit,
-// independent of how many turn attempts get interrupted in between.
-const MIN_DIRECTION_DURATION_MS = 1200;
 
 function pickRandom<T>(pool: readonly T[]): T {
   return pool[Math.floor(Math.random() * pool.length)];
@@ -98,7 +84,21 @@ export class CatWalker {
   private lastTapPos = { x: 0, y: 0 };
   private sleeping = false;
   private lastDirection: string | null = null;
-  private lastDirectionChangeAt = 0;
+  // True for the whole WALK→TURN→PAUSE→WALK sequence once a direction
+  // change has been committed to. While true, a new walk request (from
+  // wander, double-tap, or drag-release) never restarts or cancels the
+  // sequence — it only updates pendingWalkRequest, the freshest target to
+  // act on once the current TURN+PAUSE finishes. This is what makes the
+  // turn genuinely uninterruptible: no matter how many times the user taps
+  // during it, the visible sequence always plays out cleanly to its end.
+  private turnInProgress = false;
+  private pendingWalkRequest: {
+    dest: { x: number; y: number };
+    speedPxPerSec: number;
+    minMs: number;
+    maxMs: number;
+    onArrive: () => void;
+  } | null = null;
 
   onAnimationChange: (name: string) => void = () => {};
   onDraggingChange: (dragging: boolean) => void = () => {};
@@ -130,7 +130,10 @@ export class CatWalker {
     this.sleeping = sleeping;
     if (sleeping) {
       if (this.idleTimer) clearTimeout(this.idleTimer);
+      if (this.turnTimer) clearTimeout(this.turnTimer);
       if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+      this.turnInProgress = false;
+      this.pendingWalkRequest = null;
       this.onReactingChange(false);
       this.onWakingChange(false);
       this.onAnimationChange("sleep");
@@ -231,9 +234,16 @@ export class CatWalker {
           ? "walk_down"
           : "walk_up";
 
-    const startTween = () => {
+    if (this.turnInProgress) {
+      // A WALK→TURN→PAUSE→WALK sequence is already committed and playing
+      // out. Let it finish untouched; this request just becomes the
+      // freshest target to act on once it does (see the field comment).
+      this.pendingWalkRequest = { dest, speedPxPerSec, minMs, maxMs, onArrive };
+      return;
+    }
+
+    const startWalk = () => {
       this.lastDirection = dir;
-      this.lastDirectionChangeAt = Date.now();
       this.onAnimationChange(dir);
 
       const durationMs = Math.min(maxMs, Math.max(minMs, (dist / speedPxPerSec) * 1000));
@@ -254,23 +264,31 @@ export class CatWalker {
     };
 
     if (this.lastDirection !== null && this.lastDirection !== dir) {
-      // Settle on a single calm pose before turning to face the new
-      // direction — a soft "notice, turn, then walk" beat instead of an
-      // instant cut between directional sprites. The delay also enforces
-      // MIN_DIRECTION_DURATION_MS since the *last actual* direction commit
-      // (not since this attempt started) — see the constant's comment: a
-      // request that arrives while a walk barely just started still has to
-      // wait out the rest of that floor, so a burst of interrupting taps
-      // can no longer produce a string of half-committed direction flips.
-      const sinceLastChange = Date.now() - this.lastDirectionChangeAt;
-      const settleMs = Math.max(TURN_SETTLE_MS, MIN_DIRECTION_DURATION_MS - sinceLastChange);
-      this.onAnimationChange(TURN_POSE);
+      this.turnInProgress = true;
+      this.onAnimationChange(TURN_POSE); // TURN — settle, facing the new direction
       this.turnTimer = setTimeout(() => {
-        if (this.unmounted) return;
-        startTween();
-      }, settleMs);
+        if (this.unmounted) {
+          this.turnInProgress = false;
+          return;
+        }
+        // PAUSE — a held beat after turning, before walking resumes
+        this.turnTimer = setTimeout(() => {
+          this.turnInProgress = false;
+          if (this.unmounted) return;
+          const pending = this.pendingWalkRequest;
+          this.pendingWalkRequest = null;
+          if (pending) {
+            // Re-evaluate against whatever's freshest — position hasn't
+            // moved during TURN+PAUSE, so this may still need its own new
+            // turn, or may now match lastDirection and walk immediately.
+            this.runWalk(pending.dest, pending.speedPxPerSec, pending.minMs, pending.maxMs, pending.onArrive);
+          } else {
+            startWalk();
+          }
+        }, TURN_PAUSE_DURATION_MS);
+      }, TURN_DURATION_MS);
     } else {
-      startTween();
+      startWalk();
     }
   }
 
@@ -321,12 +339,14 @@ export class CatWalker {
   private pause() {
     this.pausedUntil = Date.now() + INTERACTION_PAUSE_MS;
     if (this.idleTimer) clearTimeout(this.idleTimer);
-    if (this.turnTimer) clearTimeout(this.turnTimer);
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    // Deliberately does NOT touch turnTimer/turnInProgress — pause() runs
+    // on every pointerdown, including mid-turn taps, and a committed turn
+    // sequence must always finish uninterrupted (see runWalk).
   }
 
   private triggerClickReaction() {
-    if (this.sleeping) return;
+    if (this.sleeping || this.turnInProgress) return;
     this.pause();
     this.onReactingChange(true);
     this.onAnimationChange(pickRandom(CLICK_REACTION_POOL));

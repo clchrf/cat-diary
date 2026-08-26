@@ -36,6 +36,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="zh-TW" className="h-full antialiased">
       <body className="min-h-dvh">
+        {/*
+          BottomNav is deliberately a sibling of LockGate, not nested inside
+          it. LockGate's own lock check is async (reads settings from
+          IndexedDB) and renders `null` until it resolves — so anything
+          rendered *inside* LockGate, including the nav, didn't exist in the
+          DOM at all for that brief window on every cold load. That's the
+          actual root cause of "broken on first paint, fixed by any
+          interaction": it's not a stale safe-area measurement, it's the nav
+          being mounted late, after the async check settles — which a tap
+          only appeared to fix because by the time a human reacts and taps
+          anything, the check has long since resolved. Rendering it here
+          instead makes it present on the very first synchronous render,
+          with no dependency on any async state at all.
+        */}
         <LockGate>
           {/*
             The nav is `position: fixed` (see BottomNav.tsx) and sized only
@@ -52,8 +66,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           >
             {children}
           </div>
-          <BottomNav />
         </LockGate>
+        <BottomNav />
       </body>
     </html>
   );
