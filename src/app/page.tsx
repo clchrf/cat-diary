@@ -82,7 +82,18 @@ export default function HomePage() {
         sleeping={sleeping}
       />
 
-      <div className="mt-48 flex flex-1 flex-col items-center justify-center gap-10 w-full max-w-xs">
+      {/*
+        justify-end (not justify-center) anchors the buttons a fixed
+        distance above the bottom edge of this main — which is already
+        exactly the bottom nav's own top edge, see the height calc above —
+        instead of centering them in the remaining space. Centering here
+        was the actual root cause of "buttons still too high": each prior
+        margin-top bump only partially moved them, because justify-center
+        pulls the block back toward the middle regardless of the margin
+        added above it. justify-end makes the vertical position directly
+        controlled by pb-10 below, not fought over by two layout rules.
+      */}
+      <div className="flex flex-1 flex-col items-center justify-end gap-10 w-full max-w-xs pb-10">
         <div ref={spacerRef} style={{ width: 160, height: 160 }} aria-hidden />
 
         <div className="relative z-10 flex w-full flex-col items-center gap-3">

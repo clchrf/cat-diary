@@ -202,16 +202,27 @@ export default function SettingsPage() {
       <section className="flex flex-col gap-3 border-t border-divider pt-5">
         <div className="flex items-center justify-between">
           <span className="text-[13px] font-medium">每日提醒 Email</span>
+          {/*
+            The thumb had no explicit `left`, so the browser fell back to
+            resolving its static position itself — which measured 20px in,
+            not the 0px this design assumed. Combined with the ON-state
+            translateX(18px), the thumb rendered mostly outside the 40px
+            track (left edge at 38px, right edge at 58px) — the actual
+            cause of the switch looking broken/clipped on a real phone.
+            An explicit left pins it deterministically; a plain <button>
+            also inherits default UA padding/border unless zeroed, so
+            those are reset too even though they weren't the main cause.
+          */}
           <button
             onClick={toggleReminder}
             role="switch"
             aria-checked={settings.reminderEnabled}
-            className="relative h-6 w-10 rounded-full transition-colors"
+            className="relative h-6 w-10 shrink-0 appearance-none rounded-full border-0 p-0 transition-colors"
             style={{ background: settings.reminderEnabled ? "var(--foreground)" : "var(--divider)" }}
           >
             <span
-              className="absolute top-0.5 h-5 w-5 rounded-full bg-background transition-transform"
-              style={{ transform: settings.reminderEnabled ? "translateX(18px)" : "translateX(2px)" }}
+              className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-background transition-transform"
+              style={{ transform: settings.reminderEnabled ? "translateX(16px)" : "translateX(0)" }}
             />
           </button>
         </div>

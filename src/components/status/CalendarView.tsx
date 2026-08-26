@@ -45,6 +45,15 @@ export function CalendarView({ year, month, data, onPrevMonth, onNextMonth, onSe
         </div>
       </div>
 
+      {/*
+        Each cell used to be `aspect-square`, tying its height to its own
+        (narrow, 1-of-7-column) width — on phone-width viewports that's
+        less tall than the day number + mood dot + medication indicator
+        actually need, so the extra content overflowed the cell's box and
+        visually bled into the row below. min-height (sized for the real
+        content) plus overflow-hidden fixes that at the cell level, so the
+        indicators can never render outside their own day.
+      */}
       <div className="grid grid-cols-7 gap-1">
         {cells.map((cell) => {
           const info = data[cell.dateKey];
@@ -54,8 +63,8 @@ export function CalendarView({ year, month, data, onPrevMonth, onNextMonth, onSe
               key={cell.dateKey}
               onClick={() => cell.inMonth && onSelectDay(cell.dateKey)}
               disabled={!cell.inMonth}
-              className="flex aspect-square flex-col items-center justify-center gap-1"
-              style={{ opacity: cell.inMonth ? 1 : 0.28 }}
+              className="flex flex-col items-center justify-center gap-1 overflow-hidden"
+              style={{ opacity: cell.inMonth ? 1 : 0.28, minHeight: 52 }}
             >
               <span
                 className="flex h-6 w-6 items-center justify-center rounded-full text-[13px] tabular-nums"

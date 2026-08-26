@@ -24,12 +24,20 @@ const SUMMON_MAX_MS = 12000;
 // Stop just short of the exact tapped point rather than centering on it.
 const SUMMON_STOP_SHORT_MIN = 10;
 const SUMMON_STOP_SHORT_MAX = 30;
-// A brief pause on an idle pose before starting a walk in a new facing
+// A pause on a calm, fixed idle pose before starting a walk in a new facing
 // direction — this is what makes a direction change read as the cat
 // noticing and turning, instead of an instant cut from one directional
 // sprite to another. Deliberately not a speed change: the walk itself still
-// runs at the same WALK_SPEED_PX_PER_SEC once it starts.
-const TURN_SETTLE_MS = 220;
+// runs at the same WALK_SPEED_PX_PER_SEC once it starts. A short first
+// attempt at this (220ms, plus a *random* idle pose from IDLE_POOL — which
+// includes visually "busier" poses like tailwag/groom) still read as
+// spinning on a real device, since ~75% of wander legs trigger a direction
+// change (4 possible directions, freshly randomized each leg): frequent,
+// brief, busy-looking pauses compound into a "keeps spinning" impression
+// even though each one is a single, correctly-gated turn. Fixed to a
+// single calm pose and a longer, more deliberate duration.
+const TURN_SETTLE_MS = 500;
+const TURN_POSE = "idle_sit";
 
 function pickRandom<T>(pool: readonly T[]): T {
   return pool[Math.floor(Math.random() * pool.length)];
@@ -231,11 +239,11 @@ export class CatWalker {
     };
 
     if (this.lastDirection !== null && this.lastDirection !== dir) {
-      // Brief settle on an idle pose before turning to face the new
+      // Settle on a single calm pose before turning to face the new
       // direction — a soft "notice, turn, then walk" beat instead of an
       // instant cut between directional sprites. The walk that follows
       // still runs at the same speed as always.
-      this.onAnimationChange(pickRandom(IDLE_POOL));
+      this.onAnimationChange(TURN_POSE);
       this.turnTimer = setTimeout(() => {
         if (this.unmounted) return;
         startTween();
