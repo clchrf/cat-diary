@@ -46,13 +46,16 @@ export function CalendarView({ year, month, data, onPrevMonth, onNextMonth, onSe
       </div>
 
       {/*
-        Each cell used to be `aspect-square`, tying its height to its own
-        (narrow, 1-of-7-column) width — on phone-width viewports that's
-        less tall than the day number + mood dot + medication indicator
-        actually need, so the extra content overflowed the cell's box and
-        visually bled into the row below. min-height (sized for the real
-        content) plus overflow-hidden fixes that at the cell level, so the
-        indicators can never render outside their own day.
+        Each day cell is its own independent grid item (7 columns), with
+        exactly two rows of content inside it: the date, then a single
+        indicator row holding both dots. The two dots used to each live in
+        their own stacked flex row with a 4px gap between — technically not
+        overlapping in the DOM, but close enough together vertically that
+        on real device pixel density they visually read as merged/on top
+        of each other. Putting both in one flex row, side by side with
+        their own horizontal gap, is the actual fix — not just an overflow
+        clip. min-height + overflow-hidden (kept from last round) still
+        guards against the cell itself ever bleeding into neighboring rows.
       */}
       <div className="grid grid-cols-7 gap-1">
         {cells.map((cell) => {
@@ -63,7 +66,7 @@ export function CalendarView({ year, month, data, onPrevMonth, onNextMonth, onSe
               key={cell.dateKey}
               onClick={() => cell.inMonth && onSelectDay(cell.dateKey)}
               disabled={!cell.inMonth}
-              className="flex flex-col items-center justify-center gap-1 overflow-hidden"
+              className="flex flex-col items-center justify-center gap-1.5 overflow-hidden"
               style={{ opacity: cell.inMonth ? 1 : 0.28, minHeight: 52 }}
             >
               <span
@@ -72,8 +75,8 @@ export function CalendarView({ year, month, data, onPrevMonth, onNextMonth, onSe
               >
                 {cell.day}
               </span>
-              <span style={{ width: 8, height: 8, display: "block" }}>{moodColor && <MoodDot color={moodColor} />}</span>
-              <span style={{ height: 8, display: "flex", alignItems: "center" }}>
+              <span className="flex items-center justify-center gap-1.5" style={{ height: 8 }}>
+                {moodColor && <MoodDot color={moodColor} />}
                 {info?.medTaken && (
                   <span
                     style={{
@@ -82,6 +85,7 @@ export function CalendarView({ year, month, data, onPrevMonth, onNextMonth, onSe
                       height: 8,
                       borderRadius: "50%",
                       border: "1.5px solid var(--muted)",
+                      flexShrink: 0,
                     }}
                   />
                 )}

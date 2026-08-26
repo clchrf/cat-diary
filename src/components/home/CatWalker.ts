@@ -38,6 +38,19 @@ const SUMMON_STOP_SHORT_MAX = 30;
 // single calm pose and a longer, more deliberate duration.
 const TURN_SETTLE_MS = 500;
 const TURN_POSE = "idle_sit";
+// The gap between the settle-timer and pause() is the real remaining
+// culprit: pause() runs on the very first pointerdown of EVERY tap
+// (including the 2nd tap of a double-tap, and any tap elsewhere on the
+// page while a walk happens to be mid-turn), and it unconditionally clears
+// turnTimer. A double-tap fired again — or even just poking the page —
+// before a pending turn resolves cancels it and starts a fresh one,
+// so `lastDirection` never actually advances and each new request re-picks
+// a "different" direction relative to that same stale value, endlessly
+// re-triggering the settle instead of ever completing it. This is direction
+// *thrashing*, not the settle duration being too short — the fix is a
+// floor on how soon another direction change is allowed to actually commit,
+// independent of how many turn attempts get interrupted in between.
+const MIN_DIRECTION_DURATION_MS = 1200;
 
 function pickRandom<T>(pool: readonly T[]): T {
   return pool[Math.floor(Math.random() * pool.length)];
@@ -85,6 +98,7 @@ export class CatWalker {
   private lastTapPos = { x: 0, y: 0 };
   private sleeping = false;
   private lastDirection: string | null = null;
+  private lastDirectionChangeAt = 0;
 
   onAnimationChange: (name: string) => void = () => {};
   onDraggingChange: (dragging: boolean) => void = () => {};
@@ -219,6 +233,7 @@ export class CatWalker {
 
     const startTween = () => {
       this.lastDirection = dir;
+      this.lastDirectionChangeAt = Date.now();
       this.onAnimationChange(dir);
 
       const durationMs = Math.min(maxMs, Math.max(minMs, (dist / speedPxPerSec) * 1000));
@@ -241,13 +256,19 @@ export class CatWalker {
     if (this.lastDirection !== null && this.lastDirection !== dir) {
       // Settle on a single calm pose before turning to face the new
       // direction — a soft "notice, turn, then walk" beat instead of an
-      // instant cut between directional sprites. The walk that follows
-      // still runs at the same speed as always.
+      // instant cut between directional sprites. The delay also enforces
+      // MIN_DIRECTION_DURATION_MS since the *last actual* direction commit
+      // (not since this attempt started) — see the constant's comment: a
+      // request that arrives while a walk barely just started still has to
+      // wait out the rest of that floor, so a burst of interrupting taps
+      // can no longer produce a string of half-committed direction flips.
+      const sinceLastChange = Date.now() - this.lastDirectionChangeAt;
+      const settleMs = Math.max(TURN_SETTLE_MS, MIN_DIRECTION_DURATION_MS - sinceLastChange);
       this.onAnimationChange(TURN_POSE);
       this.turnTimer = setTimeout(() => {
         if (this.unmounted) return;
         startTween();
-      }, TURN_SETTLE_MS);
+      }, settleMs);
     } else {
       startTween();
     }
